@@ -22,10 +22,10 @@ namespace
             return ch - '0';
 
         else if ( ch >= 'a' && ch <= 'f' )
-            return (ch - 'a') + 10;
+            return ( ch - 'a' ) + 10;
 
         else if ( ch >= 'A' && ch <= 'F' )
-            return (ch - 'A') + 10;
+            return ( ch - 'A' ) + 10;
 
         return std::nullopt;
     }
@@ -128,9 +128,9 @@ inline Token Lexer::word( char firstChar )
     std::string word = loop<std::string, char>(
         std::string{ firstChar }, comb, get );
 
-    auto kw = KEYWORDS_MAP.find( word );
-    if ( kw != KEYWORDS_MAP.end() )
-        return kw->second;
+    auto kw = KEYWORD_MAP.byValueSafe( word );
+    if ( kw.has_value() )
+        return kw.value();
 
     return Identifier{ word };
 }
@@ -173,15 +173,15 @@ inline Token Lexer::analyze( char ch )
             return CONTROL_SYMBOL::COLON;
     }
 
-    auto oper = SIMPLE_OPERATORS_MAP.find( ch );
-    if ( oper != SIMPLE_OPERATORS_MAP.end() )
+    auto oper = SIMPLE_OPERATOR_MAP.find( ch );
+    if ( oper != SIMPLE_OPERATOR_MAP.end() )
         return oper->second;
 
-    auto sym = CONTROL_SYMBOLS_MAP.find( ch );
-    if ( sym != CONTROL_SYMBOLS_MAP.end() )
-        return sym->second;
+    auto sym = CONTROL_SYMBOL_MAP.byValueSafe( ch );
+    if ( sym.has_value() )
+        return sym.value();
 
-    throw std::runtime_error( std::string("Unrecognized character ") + ch );
+    throw std::runtime_error( std::string( "Unrecognized character " ) + ch );
 }
 
 std::vector<Token> Lexer::scan()
