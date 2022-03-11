@@ -1,7 +1,7 @@
 LD=g++
 LDFLAGS=
 CXX=g++
-CXXFLAGS=-std=c++20 -Wall -pedantic -Wno-long-long
+CXXFLAGS=-std=c++20 -Wall -pedantic -Wno-long-long -g
 LIBS=
 
 BIN=mila
@@ -14,7 +14,7 @@ OBJDIRS=$(dir $(OBJ))
 DUMMY:=$(shell mkdir --parents $(OBJDIRS))
 
 ## Compile
-.PHONY: all run clean
+.PHONY: all run runtests clean
 all: $(BIN)
 
 $(BIN): $(OBJ)
@@ -22,6 +22,12 @@ $(BIN): $(OBJ)
 
 run: $(BIN)
 	./$(BIN)
+
+test: $(BIN)
+	./$(BIN) samples/arrayMax.mila
+
+runtests: $(BIN)
+	./runtests
 
 clean:
 	rm -frd $(OBJ) $(BIN) Makefile.d doc
