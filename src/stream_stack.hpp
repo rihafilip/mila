@@ -4,11 +4,16 @@
 #include <iostream>
 #include <optional>
 
+/**
+ * @brief Stack-like operations on std::istream (only extractions)
+ *
+ */
 class StreamStack
 {
 private:
     std::istream& m_Stream;
 
+    /// Throws if m_Stream is in fail state, returns if m_Stream is not eof
     bool good() const;
 
 public:
@@ -18,7 +23,9 @@ public:
     std::optional<char> top();
     std::optional<char> pop();
 
+    /// Return a top character or throw an exception
     char topForce();
+    /// Pop the stack of `top() == ch`, return if stack has been popped
     bool popIf( char ch );
 };
 

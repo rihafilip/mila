@@ -9,6 +9,7 @@
 
 namespace token
 {
+    /// Operator tokens
     enum class OPERATOR
     {
         EQUAL, NOT_EQUAL,
@@ -18,6 +19,7 @@ namespace token
         ASSIGNEMENT
     };
 
+    /// Operator - string bimap
     const cont::Bimap<OPERATOR, std::string> OPERATOR_MAP
     {
         {OPERATOR::EQUAL,       "="},
@@ -34,6 +36,7 @@ namespace token
         {OPERATOR::ASSIGNEMENT, ":="}
     };
 
+    /// Operators, that cannot be confused with others by reading only one character
     const std::map<char, OPERATOR> SIMPLE_OPERATOR_MAP
     {
         {'=', OPERATOR::EQUAL},
@@ -44,6 +47,7 @@ namespace token
         {'%', OPERATOR::MODULO}
     };
 
+    /// Control symbols tokens
     enum class CONTROL_SYMBOL
     {
         SEMICOLON, COLON, COMMA, DOT,
@@ -51,6 +55,7 @@ namespace token
         SQUARE_BRACKET_OPEN, SQUARE_BRACKET_CLOSE
     };
 
+    /// Control symbol - the actual control character map
     const cont::Bimap<CONTROL_SYMBOL, char> CONTROL_SYMBOL_MAP
     {
         {CONTROL_SYMBOL::SEMICOLON,             ';'},
@@ -63,7 +68,7 @@ namespace token
         {CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE,  ']'}
     };
 
-
+    /// Keyword token
     enum class KEYWORD
     {
         PROGRAM, FORWARD,
@@ -80,6 +85,7 @@ namespace token
         NOT, AND, OR, XOR
     };
 
+    /// Keyword - the string of the keyword map
     const cont::Bimap<KEYWORD, std::string> KEYWORD_MAP
     {
         {KEYWORD::PROGRAM,      "program"},
@@ -112,24 +118,28 @@ namespace token
         {KEYWORD::XOR,          "xor"}
     };
 
-
+    /// Wrapper around std::string
     struct Identifier
     {
         std::string value;
     };
 
+    /// Wrapper around integer
     struct Integer
     {
         long long value;
     };
 
+    /// Wrapper around bool
     struct Boolean
     {
         bool value;
     };
 
+    /// All token types
     using Token = std::variant<OPERATOR, CONTROL_SYMBOL, KEYWORD, Identifier, Integer, Boolean>;
 
+    /// Return a pretty string representation of token
     std::string to_string( const Token& tk );
 }
 

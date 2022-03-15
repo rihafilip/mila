@@ -8,6 +8,12 @@
 
 namespace cont
 {
+    /**
+     * @brief Bidirectional map, allowing indexing both by keys and values
+     *
+     * @tparam Key key type
+     * @tparam Value value type
+     */
     template <typename Key, typename Value>
     class Bimap
     {
@@ -16,7 +22,6 @@ namespace cont
         std::map<Value, Key> m_ValueMap;
 
     public:
-
         constexpr Bimap( std::initializer_list<std::pair<Key, Value>> init )
             : m_KeyMap()
             , m_ValueMap()
@@ -28,8 +33,18 @@ namespace cont
             }
         }
 
+        Bimap() = default;
+
         constexpr ~Bimap() = default;
 
+        /**
+         * @brief Insert a pair of key and value into the map.
+         * If either of given values is already present, it's value is deleted
+         * from the other side
+         *
+         * @param k key
+         * @param v value
+         */
         constexpr void insert( const Key& k, const Value& v )
         {
             auto k1 = m_KeyMap.find( k );
@@ -72,9 +87,6 @@ namespace cont
         {
             return m_ValueMap.at( v );
         }
-
-
-        Bimap() = default;
 
         Bimap( const Bimap& ) = default;
         Bimap( Bimap&& ) = default;

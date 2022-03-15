@@ -38,6 +38,7 @@ namespace
         return std::nullopt;
     }
 
+    /// Returns a function that works in Lexer loop on integers with given base
     constexpr auto combineInteger( int base )
     {
         return [base]( Integer i, int e )
