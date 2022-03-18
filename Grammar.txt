@@ -1,0 +1,85 @@
+Program -> program identifier ; Globals Block .
+
+Globals -> Constats Globals
+Globals -> Variables Globals
+Globals -> Procedure Globals
+Globals -> Function Globals
+Globals ->
+
+Constants -> const SingleConstant MoreConstants
+MoreConstants -> SingleConstant MoreConstants
+MoreConstants ->
+SingleConstant -> identifier = constant ;
+
+Variables -> var SingleVariable MoreVariables
+MoreVariables -> SingleVariable MoreVariables
+MoreVariables ->
+SingleVariable -> identifier IdentifierList : Type ;
+IdentifierList -> , identifier IdentifierList
+IdentifierList ->
+
+Procedure -> procedure identifier Parameters ; Body
+Function -> function identifier Parameters : Type ; Body
+
+Parameters -> SingleParameter MoreParameters
+Parameters ->
+MoreParameters -> , SingleParameter MoreParameters
+MoreParameters ->
+SingleParameter -> identifier : Type
+
+Body -> forward ;
+Body -> Block ;
+
+Block -> begin Stat Stats end
+Stats -> ; Stat Stats
+Stats ->
+
+Stat -> identifier StatID
+Stat -> Block
+Stat -> if Expr then Stat Else_p
+Stat -> while Expr do Stat
+Stat -> for identifier := Expr ForDir Expr do Stat
+Stat ->
+
+StatId -> := Expr
+StatId -> [ Expr ] := Expr
+StatId -> ( Arguments )
+
+ForDir -> to
+ForDir -> downto
+
+Else_p -> else Stat
+Else_p ->
+
+Arguments -> OneArgument MoreArguments
+Arguments->
+MoreArguments -> , OneArgument MoreArguments
+MoreArguments->
+OneArgument -> Expr
+OneArgument -> identifier
+
+Expr -> SimpleExpr @ SimpleExpr // = <> < > <= >=
+Expr -> SimpleExpr
+
+SimpleExpr -> Term MoreSimpleExpr
+MoreSimpleExpr -> @ Term MoreSimpleExpr // + - or xor
+MoreSimpleExpr ->
+
+Term -> Factor MoreTerm
+MoreTerm -> @ Factor MoreTerm // * / div mod and
+MoreTerm ->
+
+Factor -> identifier FactorId
+Factor -> constant
+Factor -> ( Expr )
+Factor -> not Factor
+Factor -> + Factor
+Factor -> - Factor
+
+FactorId -> [ Expr ]
+FactorId -> ( Arguments )
+FactorId ->
+
+Type -> array [ constant .. constant ] of Type
+Type -> integer
+Type -> boolean
