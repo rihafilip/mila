@@ -8,19 +8,14 @@ using namespace token;
 /*********************************************************************/
 // Fail functions
 
-[[noreturn]] void fail( const std::string& expected, const std::string& got )
+[[noreturn]] void fail( const std::string& expected, const Token& got )
 {
     throw std::runtime_error(
         "Parser error: Expected "
         + expected
         + ", but instead got "
-        + got
+        + token::to_string( got )
     );
-}
-
-[[noreturn]] void tokenFail( const Token& expected, const Token& got )
-{
-    fail( token::to_string( expected ), token::to_string( got ) );
 }
 
 /*********************************************************************/
@@ -57,6 +52,8 @@ namespace parser
         return wrap( m_Data.top() );
     }
 
+    /*********************************************************************/
+
     WrappedToken Parser::pop()
     {
         if ( m_Data.empty() )
@@ -67,34 +64,31 @@ namespace parser
         return wrap( x );
     }
 
-
-    /*********************************************************************/
-
-    void Parser::popOperator( token::OPERATOR op )
+    void Parser::pop( token::OPERATOR op )
     {
         auto tk = pop();
         if ( tk.isEq( op ) )
             return;
 
-        tokenFail( op, tk.variant );
+        fail( token::to_string( op ), tk.variant );
     }
 
-    void Parser::popControlSymbol( token::CONTROL_SYMBOL cs )
+    void Parser::pop( token::CONTROL_SYMBOL cs )
     {
         auto tk = pop();
         if ( tk.isEq( cs ) )
             return;
 
-        tokenFail( cs, tk.variant );
+        fail( token::to_string( cs ), tk.variant );
     }
 
-    void Parser::popKeyword( token::KEYWORD kw )
+    void Parser::pop( token::KEYWORD kw )
     {
         auto tk = pop();
         if ( tk.isEq( kw ) )
             return;
 
-        tokenFail( kw, tk.variant );
+        fail( token::to_string( kw ), tk.variant );
     }
 
     /*********************************************************************/
@@ -106,7 +100,7 @@ namespace parser
         if ( v.has_value() )
             return v->value;
 
-        fail( "identifier", token::to_string( t.variant ) );
+        fail( "identifier", t.variant );
     }
 
     Constant Parser::constant_literal()
@@ -124,7 +118,7 @@ namespace parser
 
                 []( auto t ) -> Constant
             {
-                fail( "constant", token::to_string( t ) );
+                fail( "constant", t );
             }
             );
     }
@@ -133,16 +127,16 @@ namespace parser
 
     Program Parser::program()
     {
-        popKeyword( KEYWORD::PROGRAM );
+        pop( KEYWORD::PROGRAM );
         auto name = identifier();
-        popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+        pop( CONTROL_SYMBOL::SEMICOLON );
         auto [consts, varias, subp] = globals();
         auto code = block();
-        popControlSymbol( CONTROL_SYMBOL::DOT );
+        pop( CONTROL_SYMBOL::DOT );
 
         auto t = top();
         if ( t.has_value() )
-            fail( "EOF", token::to_string( t->variant ) );
+            fail( "EOF", t->variant );
 
         return Program{ name, subp, consts, varias, code };
     }
@@ -184,7 +178,7 @@ namespace parser
 
     Many<NamedConstant> Parser::constants()
     {
-        popKeyword( KEYWORD::CONST );
+        pop( KEYWORD::CONST );
 
         Many<NamedConstant> acc{ single_constant() };
 
@@ -199,9 +193,9 @@ namespace parser
     NamedConstant Parser::single_constant()
     {
         auto id = identifier();
-        popOperator( OPERATOR::EQUAL );
+        pop( OPERATOR::EQUAL );
         auto c = constant_literal();
-        popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+        pop( CONTROL_SYMBOL::SEMICOLON );
         return NamedConstant{ id, c };
     }
 
@@ -209,7 +203,7 @@ namespace parser
 
     Many<Variable> Parser::variables()
     {
-        popKeyword( KEYWORD::VAR );
+        pop( KEYWORD::VAR );
 
         Many<Variable> acc{ single_variable() };
 
@@ -225,9 +219,9 @@ namespace parser
     Many<Variable> Parser::single_variable()
     {
         auto ids = identifier_list();
-        popControlSymbol( CONTROL_SYMBOL::COLON );
+        pop( CONTROL_SYMBOL::COLON );
         auto t = type();
-        popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+        pop( CONTROL_SYMBOL::SEMICOLON );
 
         return identifierToVariable( ids, t );
     }
@@ -241,7 +235,7 @@ namespace parser
         // MoreIdentifierList
         while ( lookupEq( CONTROL_SYMBOL::COMMA ) )
         {
-            popControlSymbol( CONTROL_SYMBOL::COMMA );
+            pop( CONTROL_SYMBOL::COMMA );
             acc.push_back( identifier() );
         }
 
@@ -252,10 +246,10 @@ namespace parser
 
     Subprogram Parser::procedure()
     {
-        popKeyword( KEYWORD::PROCEDURE );
+        pop( KEYWORD::PROCEDURE );
         auto n = identifier();
         auto ps = parameters();
-        popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+        pop( CONTROL_SYMBOL::SEMICOLON );
 
         auto b = body();
 
@@ -271,13 +265,13 @@ namespace parser
 
     Subprogram Parser::function()
     {
-        popKeyword( KEYWORD::FUNCTION );
+        pop( KEYWORD::FUNCTION );
         auto n = identifier();
         auto ps = parameters();
 
-        popControlSymbol( CONTROL_SYMBOL::COLON );
+        pop( CONTROL_SYMBOL::COLON );
         auto t = type();
-        popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+        pop( CONTROL_SYMBOL::SEMICOLON );
 
         auto b = body();
 
@@ -300,25 +294,25 @@ namespace parser
             return {};
         }
 
-        popControlSymbol( CONTROL_SYMBOL::BRACKET_OPEN );
+        pop( CONTROL_SYMBOL::BRACKET_OPEN );
 
         Many<Variable> acc{ single_parameter() };
 
         // MoreParameters
         while ( lookupEq( CONTROL_SYMBOL::COMMA ) )
         {
-            popControlSymbol( CONTROL_SYMBOL::COMMA );
+            pop( CONTROL_SYMBOL::COMMA );
             append( acc, single_parameter() );
         }
 
-        popControlSymbol( CONTROL_SYMBOL::BRACKET_CLOSE );
+        pop( CONTROL_SYMBOL::BRACKET_CLOSE );
         return acc;
     }
 
     Many<Variable> Parser::single_parameter()
     {
         auto ids = identifier_list();
-        popControlSymbol( CONTROL_SYMBOL::COLON );
+        pop( CONTROL_SYMBOL::COLON );
         auto t = type();
 
         return identifierToVariable( ids, t );
@@ -330,130 +324,129 @@ namespace parser
     {
         if ( lookupEq( KEYWORD::FORWARD ) )
         {
-            popKeyword( KEYWORD::FORWARD );
-            popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+            pop( KEYWORD::FORWARD );
+            pop( CONTROL_SYMBOL::SEMICOLON );
             return std::nullopt;
         }
 
         auto vars = variables();
         auto b = block();
-        return {{ vars, b }};
+        return { { vars, b } };
     }
 
     /*********************************************************************/
 
     Block Parser::block()
     {
-        popKeyword( KEYWORD::BEGIN );
+        pop( KEYWORD::BEGIN );
 
         // Stats
-        Many<Statement> acc { stat() };
+        Many<Statement> acc{ stat() };
         while ( lookupEq( CONTROL_SYMBOL::SEMICOLON ) )
         {
-            popControlSymbol( CONTROL_SYMBOL::SEMICOLON );
+            pop( CONTROL_SYMBOL::SEMICOLON );
             acc.push_back( stat() );
         }
 
-        popKeyword( KEYWORD::END );
+        pop( KEYWORD::END );
 
-        return Block { acc };
+        return Block{ acc };
     }
 
     Statement Parser::stat()
     {
         // StatId
-        if ( lookup<token::Identifier>())
+        if ( lookup<token::Identifier>() )
         {
             auto id = identifier();
-            if ( lookupEq( OPERATOR::ASSIGNEMENT ))
+            if ( lookupEq( OPERATOR::ASSIGNEMENT ) )
             {
-                popOperator( OPERATOR::ASSIGNEMENT );
+                pop( OPERATOR::ASSIGNEMENT );
                 auto ex = expr();
-                return Assignment { id, ex };
+                return Assignment{ id, ex };
             }
             else if ( lookupEq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
             {
-                popControlSymbol( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+                pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
                 auto pos = expr();
-                popControlSymbol( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
-                popOperator( OPERATOR::ASSIGNEMENT );
+                pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+                pop( OPERATOR::ASSIGNEMENT );
                 auto val = expr();
-                return ArrayAssignment { id, pos, val };
+                return ArrayAssignment{ id, pos, val };
             }
             else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) )
             {
-                popControlSymbol( CONTROL_SYMBOL::BRACKET_OPEN );
+                pop( CONTROL_SYMBOL::BRACKET_OPEN );
                 auto args = arguments();
-                popControlSymbol( CONTROL_SYMBOL::BRACKET_CLOSE );
-                return SubprogramCall { id, args };
+                pop( CONTROL_SYMBOL::BRACKET_CLOSE );
+                return SubprogramCall{ id, args };
             }
             else
             {
-                fail( "assignment or subprogram call",
-                    token::to_string( top()->variant ) );
+                fail( "assignment or subprogram call", top()->variant );
             }
         }
 
-        if ( lookupEq( KEYWORD::BEGIN) )
+        if ( lookupEq( KEYWORD::BEGIN ) )
         {
             return make_ptr<Block>( block() );
         }
 
         if ( lookupEq( KEYWORD::IF ) )
         {
-            popKeyword(KEYWORD::IF);
+            pop( KEYWORD::IF );
             auto exp = expr();
-            popKeyword( KEYWORD::THEN );
+            pop( KEYWORD::THEN );
             auto true_b = stat();
-            if ( ! lookupEq ( KEYWORD::ELSE ) )
+            if ( !lookupEq( KEYWORD::ELSE ) )
             {
                 return make_ptr<If>( exp, true_b, std::nullopt );
             }
-            popKeyword( KEYWORD::ELSE );
+            pop( KEYWORD::ELSE );
             auto false_b = stat();
             return make_ptr<If>( exp, true_b, false_b );
         }
 
-        if ( lookupEq( KEYWORD::WHILE) )
+        if ( lookupEq( KEYWORD::WHILE ) )
         {
-            popKeyword( KEYWORD::WHILE );
+            pop( KEYWORD::WHILE );
             auto exp = expr();
-            popKeyword( KEYWORD::DO );
+            pop( KEYWORD::DO );
             auto st = stat();
             return make_ptr<While>( exp, st );
         }
 
         if ( lookupEq( KEYWORD::FOR ) )
         {
-            popKeyword( KEYWORD::FOR );
+            pop( KEYWORD::FOR );
             auto id = identifier();
-            popOperator( OPERATOR::ASSIGNEMENT );
+            pop( OPERATOR::ASSIGNEMENT );
             auto init = expr();
 
             For::DIRECTION dir;
             if ( lookupEq( KEYWORD::TO ) )
             {
-                popKeyword( KEYWORD::TO );
+                pop( KEYWORD::TO );
                 dir = For::DIRECTION::TO;
             }
-            else if ( lookupEq( KEYWORD::DOWNTO) )
+            else if ( lookupEq( KEYWORD::DOWNTO ) )
             {
-                popKeyword( KEYWORD::DOWNTO );
+                pop( KEYWORD::DOWNTO );
                 dir = For::DIRECTION::DOWNTO;
             }
             else
             {
-                fail( "to or downto", token::to_string( top()->variant ));
+                fail( "to or downto", top()->variant );
             }
 
             auto target = expr();
-            popKeyword( KEYWORD::DO );
+            pop( KEYWORD::DO );
             auto st = stat();
 
             return make_ptr<For>( id, init, dir, target, st );
         }
 
-        fail( "statement", token::to_string( top()->variant ) );
+        fail( "statement", top()->variant );
     }
 
 }

@@ -43,9 +43,9 @@ namespace parser
          * \defgroup Pop Pop a specific token, failing if it is not present
          * @{
          */
-        void popOperator( token::OPERATOR op );
-        void popControlSymbol( token::CONTROL_SYMBOL cs );
-        void popKeyword( token::KEYWORD kw );
+        void pop( token::OPERATOR op );
+        void pop( token::CONTROL_SYMBOL cs );
+        void pop( token::KEYWORD kw );
 
         /// Identifier parser, practically a pop wrapper
         ast::Identifier identifier();
@@ -105,16 +105,16 @@ namespace parser
         Many<Variable> variables();
         Many<Variable> single_variable();
 
-        Many<ast::Identifier> identifier_list ();
+        Many<ast::Identifier> identifier_list();
 
         Subprogram procedure();
         Subprogram function();
 
-        Many<Variable> parameters ();
-        Many<Variable> single_parameter ();
+        Many<Variable> parameters();
+        Many<Variable> single_parameter();
 
         /// Returns Block if body is present, nullopt on forwarding
-        std::optional<std::pair<Many<Variable>, Block>> body ();
+        std::optional<std::pair<Many<Variable>, Block>> body();
 
         Block block();
         Statement stat();
