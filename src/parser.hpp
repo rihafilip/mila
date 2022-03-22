@@ -118,6 +118,12 @@ namespace parser
 
         Block block();
         Statement stat();
+        Statement statId();
+
+        // _p is used because they are keywords
+        If if_p();
+        While while_p();
+        For for_p();
 
         Expression expr();
         Many<Expression> arguments();
