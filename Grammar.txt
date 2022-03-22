@@ -14,21 +14,23 @@ SingleConstant -> identifier = constant ;
 Variables -> var SingleVariable MoreVariables
 MoreVariables -> SingleVariable MoreVariables
 MoreVariables ->
-SingleVariable -> identifier IdentifierList : Type ;
-IdentifierList -> , identifier IdentifierList
-IdentifierList ->
+SingleVariable -> IdentifierList : Type ;
+
+IdentifierList -> identifier
+MoreIdentifierList -> , identifier MoreIdentifierList
+MoreIdentifierList ->
 
 Procedure -> procedure identifier Parameters ; Body
 Function -> function identifier Parameters : Type ; Body
 
-Parameters -> SingleParameter MoreParameters
+Parameters -> ( SingleParameter MoreParameters )
 Parameters ->
 MoreParameters -> , SingleParameter MoreParameters
 MoreParameters ->
-SingleParameter -> identifier : Type
+SingleParameter -> IdentifierList : Type
 
 Body -> forward ;
-Body -> Block ;
+Body -> Variables Block ;
 
 Block -> begin Stat Stats end
 Stats -> ; Stat Stats
@@ -51,12 +53,10 @@ ForDir -> downto
 Else_p -> else Stat
 Else_p ->
 
-Arguments -> OneArgument MoreArguments
+Arguments -> Expr MoreArguments
 Arguments->
-MoreArguments -> , OneArgument MoreArguments
+MoreArguments -> , Expr MoreArguments
 MoreArguments->
-OneArgument -> Expr
-OneArgument -> identifier
 
 Expr -> SimpleExpr @ SimpleExpr // = <> < > <= >=
 Expr -> SimpleExpr

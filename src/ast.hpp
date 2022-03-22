@@ -18,6 +18,12 @@ namespace ast
     template <typename T>
     using ptr = std::shared_ptr<T>;
 
+    template< class T, class... Args >
+    ptr<T> make_ptr( Args&&... args )
+    {
+        return std::make_shared<T>( args... );
+    }
+
     /***********************************/
     // Types
     enum class SimpleType
@@ -69,22 +75,26 @@ namespace ast
     /***********************************/
     // Expressions
 
+    struct VariableAccess
+    {
+        Identifier identifier;
+    };
+
+    struct ConstantExpression
+    {
+        Constant value;
+    };
+
     struct ArrayAccess;
     struct SubprogramCall;
-    struct UnaryPlus;
-    struct UnaryMinus;
-    struct UnaryNot;
+
+    struct UnaryOperator;
     struct BinaryOperator;
 
-    using Expression =
-        std::variant<
-            ptr<ArrayAccess>,
-            ptr<SubprogramCall>,
-            Constant, Identifier,
-            ptr<UnaryPlus>,
-            ptr<UnaryMinus>,
-            ptr<UnaryNot>,
-            ptr<BinaryOperator>>;
+    using Expression = std::variant<
+        VariableAccess, ConstantExpression,
+        ptr<ArrayAccess>, ptr<SubprogramCall>,
+        ptr<UnaryOperator>, ptr<BinaryOperator>>;
 
     struct ArrayAccess
     {
@@ -98,24 +108,19 @@ namespace ast
         Many<Expression> arguments;
     };
 
-    struct UnaryPlus
+    struct UnaryOperator
     {
-        Expression expression;
-    };
+        enum class OPERATOR
+        {
+            PLUS, MINUS, NOT
+        };
 
-    struct UnaryMinus
-    {
-        Expression expression;
-    };
-
-    struct UnaryNot
-    {
         Expression expression;
     };
 
     struct BinaryOperator
     {
-        enum class Operator
+        enum class OPERATOR
         {
             EQ, NOT_EQ,
             LESS_EQ, LESS, MORE_EQ, MORE,
@@ -124,7 +129,7 @@ namespace ast
             AND, OR, XOR
         };
 
-        Operator op;
+        OPERATOR op;
         Expression left;
         Expression right;
     };
@@ -132,22 +137,42 @@ namespace ast
     /***********************************/
     // Statements
 
-    struct Block;
-    struct While;
-    struct For;
-    struct If;
     struct Assignment
     {
         Identifier variable;
         Expression value;
     };
 
-    using Statement =
-        std::variant<ptr<Block>, ptr<While>, ptr<For>, ptr<If>, ptr<Assignment>>;
+    struct ArrayAssignment
+    {
+        Identifier array;
+        Expression position;
+        Expression value;
+    };
+
+    struct EmptyStatement
+    {};
+
+    struct Block;
+    struct If;
+    struct While;
+    struct For;
+
+    using Statement = std::variant<
+        SubprogramCall,
+        Assignment, ArrayAssignment, EmptyStatement,
+        ptr<Block>, ptr<If>, ptr<While>, ptr<For>>;
 
     struct Block
     {
         Many<Statement> statements;
+    };
+
+    struct If
+    {
+        Expression condition;
+        Statement trueCode;
+        std::optional<Statement> elseCode;
     };
 
     struct While
@@ -169,13 +194,6 @@ namespace ast
         DIRECTION direction;
         Expression target;
         Statement code;
-    };
-
-    struct If
-    {
-        Expression condition;
-        Statement trueCode;
-        std::optional<Statement> elseCode;
     };
 
     /***********************************/
@@ -212,8 +230,6 @@ namespace ast
         Many<Variable> variables;
         Block code;
     };
-
-    using SubprogramDecl = std::variant<ProcedureDecl, FunctionDecl>;
 
     using Subprogram =
         std::variant<ProcedureDecl, Procedure, FunctionDecl, Function>;

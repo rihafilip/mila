@@ -94,37 +94,33 @@ namespace parser
          */
         Program program();
 
-        Many<Subprogram> subprogs( Many<Subprogram> acc = {} );
-        Subprogram subprog();
-        SubprogramDecl subprog_decl();
+        using Globals =
+            std::tuple<Many<NamedConstant>, Many<Variable>, Many<Subprogram>>;
 
-        Many<Variable> params1();
-        Many<Variable> params( Many<Variable> acc );
-        Variable param();
-
-        std::pair<Many<NamedConstant>, Many<Variable>> globals( Many<NamedConstant> consts = {}, Many<Variable> vars = {} );
+        Globals globals();
 
         Many<NamedConstant> constants();
-        Many<NamedConstant> constant_defs( Many<NamedConstant> acc );
-        NamedConstant named_constant();
+        NamedConstant single_constant();
 
-        Many<Variable> vars();
-        Many<Variable> var_defs( Many<Variable> acc );
-        Many<Variable> variable();
-        Many<ast::Identifier> var_identifiers( Many<ast::Identifier> acc );
+        Many<Variable> variables();
+        Many<Variable> single_variable();
+
+        Many<ast::Identifier> identifier_list ();
+
+        Subprogram procedure();
+        Subprogram function();
+
+        Many<Variable> parameters ();
+        Many<Variable> single_parameter ();
+
+        /// Returns Block if body is present, nullopt on forwarding
+        std::optional<std::pair<Many<Variable>, Block>> body ();
 
         Block block();
-        Many<Statement> stats();
         Statement stat();
 
         Expression expr();
-        Many<Expression> args1();
-        Many<Expression> args();
-
-        Expression op1();
-        Expression op2();
-        Expression op3();
-        Expression op4();
+        Many<Expression> arguments();
 
         Type type();
         /// @}
