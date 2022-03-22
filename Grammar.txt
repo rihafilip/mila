@@ -38,14 +38,20 @@ Stats ->
 
 Stat -> identifier StatID
 Stat -> Block
-Stat -> if Expr then Stat Else_p
-Stat -> while Expr do Stat
-Stat -> for identifier := Expr ForDir Expr do Stat
+Stat -> If
+Stat -> While
+Stat -> For
 Stat ->
 
 StatId -> := Expr
 StatId -> [ Expr ] := Expr
 StatId -> ( Arguments )
+
+If -> if Expr then Stat Else_p
+
+While -> while Expr do Stat
+
+For -> for identifier := Expr ForDir Expr do Stat
 
 ForDir -> to
 ForDir -> downto

@@ -355,98 +355,108 @@ namespace parser
 
     Statement Parser::stat()
     {
-        // StatId
         if ( lookup<token::Identifier>() )
-        {
-            auto id = identifier();
-            if ( lookupEq( OPERATOR::ASSIGNEMENT ) )
-            {
-                pop( OPERATOR::ASSIGNEMENT );
-                auto ex = expr();
-                return Assignment{ id, ex };
-            }
-            else if ( lookupEq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
-            {
-                pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
-                auto pos = expr();
-                pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
-                pop( OPERATOR::ASSIGNEMENT );
-                auto val = expr();
-                return ArrayAssignment{ id, pos, val };
-            }
-            else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) )
-            {
-                pop( CONTROL_SYMBOL::BRACKET_OPEN );
-                auto args = arguments();
-                pop( CONTROL_SYMBOL::BRACKET_CLOSE );
-                return SubprogramCall{ id, args };
-            }
-            else
-            {
-                fail( "assignment or subprogram call", top()->variant );
-            }
-        }
+            return statId();
 
         if ( lookupEq( KEYWORD::BEGIN ) )
-        {
             return make_ptr<Block>( block() );
-        }
 
         if ( lookupEq( KEYWORD::IF ) )
-        {
-            pop( KEYWORD::IF );
-            auto exp = expr();
-            pop( KEYWORD::THEN );
-            auto true_b = stat();
-            if ( !lookupEq( KEYWORD::ELSE ) )
-            {
-                return make_ptr<If>( exp, true_b, std::nullopt );
-            }
-            pop( KEYWORD::ELSE );
-            auto false_b = stat();
-            return make_ptr<If>( exp, true_b, false_b );
-        }
+            return make_ptr<If>( if_p() );
 
         if ( lookupEq( KEYWORD::WHILE ) )
-        {
-            pop( KEYWORD::WHILE );
-            auto exp = expr();
-            pop( KEYWORD::DO );
-            auto st = stat();
-            return make_ptr<While>( exp, st );
-        }
+            return make_ptr<While>( while_p() );
 
         if ( lookupEq( KEYWORD::FOR ) )
-        {
-            pop( KEYWORD::FOR );
-            auto id = identifier();
-            pop( OPERATOR::ASSIGNEMENT );
-            auto init = expr();
+            return make_ptr<For>( for_p() );
 
-            For::DIRECTION dir;
-            if ( lookupEq( KEYWORD::TO ) )
-            {
-                pop( KEYWORD::TO );
-                dir = For::DIRECTION::TO;
-            }
-            else if ( lookupEq( KEYWORD::DOWNTO ) )
-            {
-                pop( KEYWORD::DOWNTO );
-                dir = For::DIRECTION::DOWNTO;
-            }
-            else
-            {
-                fail( "to or downto", top()->variant );
-            }
-
-            auto target = expr();
-            pop( KEYWORD::DO );
-            auto st = stat();
-
-            return make_ptr<For>( id, init, dir, target, st );
-        }
-
-        fail( "statement", top()->variant );
+        return EmptyStatement{};
     }
 
+    Statement Parser::statId()
+    {
+        auto id = identifier();
+        if ( lookupEq( OPERATOR::ASSIGNEMENT ) )
+        {
+            pop( OPERATOR::ASSIGNEMENT );
+            auto ex = expr();
+            return Assignment{ id, ex };
+        }
+
+        else if ( lookupEq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
+        {
+            pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+            auto pos = expr();
+            pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+            pop( OPERATOR::ASSIGNEMENT );
+            auto val = expr();
+            return ArrayAssignment{ id, pos, val };
+        }
+
+        else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) )
+        {
+            pop( CONTROL_SYMBOL::BRACKET_OPEN );
+            auto args = arguments();
+            pop( CONTROL_SYMBOL::BRACKET_CLOSE );
+            return SubprogramCall{ id, args };
+        }
+
+        else
+        {
+            fail( "assignment or subprogram call", top()->variant );
+        }
+    }
+
+    If Parser::if_p()
+    {
+        pop( KEYWORD::IF );
+        auto exp = expr();
+        pop( KEYWORD::THEN );
+        auto true_b = stat();
+        if ( !lookupEq( KEYWORD::ELSE ) )
+        {
+            return { exp, true_b, std::nullopt };
+        }
+        pop( KEYWORD::ELSE );
+        auto false_b = stat();
+        return { exp, true_b, false_b };
+    }
+
+    While Parser::while_p()
+    {
+        pop( KEYWORD::WHILE );
+        auto exp = expr();
+        pop( KEYWORD::DO );
+        auto st = stat();
+        return { exp, st };
+    }
+
+    For Parser::for_p()
+    {
+        pop( KEYWORD::FOR );
+        auto id = identifier();
+        pop( OPERATOR::ASSIGNEMENT );
+        auto init = expr();
+
+        For::DIRECTION dir;
+        if ( lookupEq( KEYWORD::TO ) )
+        {
+            pop( KEYWORD::TO );
+            dir = For::DIRECTION::TO;
+        }
+        else if ( lookupEq( KEYWORD::DOWNTO ) )
+        {
+            pop( KEYWORD::DOWNTO );
+            dir = For::DIRECTION::DOWNTO;
+        }
+        else
+        {
+            fail( "to or downto", top()->variant );
+        }
+
+        auto target = expr();
+        pop( KEYWORD::DO );
+        auto st = stat();
+        return { id, init, dir, target, st };
+    }
 }
