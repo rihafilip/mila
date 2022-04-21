@@ -1,208 +1,212 @@
 #include "lexer.hpp"
 
+#include "tokens.hpp"
+#include "concept.hpp"
+#include <functional>
+#include <initializer_list>
+#include <map>
 #include <optional>
 #include <stdexcept>
-#include <cctype>
+#include <utility>
+#include <variant>
 
 using namespace token;
 
-namespace
+/***********************************************/
+// Error function
+void parseError( const std::string& expected, char got )
 {
-    std::optional<int> digitValue( char ch )
-    {
-        if ( ch >= '0' && ch <= '9' )
-            return ch - '0';
-
-        return std::nullopt;
-    }
-
-    std::optional<int> hexDigitValue( char ch )
-    {
-        if ( ch >= '0' && ch <= '9' )
-            return ch - '0';
-
-        else if ( ch >= 'a' && ch <= 'f' )
-            return ( ch - 'a' ) + 10;
-
-        else if ( ch >= 'A' && ch <= 'F' )
-            return ( ch - 'A' ) + 10;
-
-        return std::nullopt;
-    }
-
-    std::optional<int> octDigitValue( char ch )
-    {
-        if ( ch >= '0' && ch <= '7' )
-            return ch - '0';
-
-        return std::nullopt;
-    }
-
-    /// Returns a function that works in Lexer loop on integers with given base
-    constexpr auto combineInteger( int base )
-    {
-        return [base]( Integer i, int e )
-        {
-            i.value *= base;
-            i.value += e;
-            return i;
-        };
-    }
-} // anonymous namespace
-
-void Lexer::skipWs()
-{
-    std::optional<char> ch;
-    while ( ( ch = m_St.top() ).has_value()
-        && std::isspace( ch.value() ) )
-    {
-        m_St.pop();
-        if ( ch.value() == '\n' )
-            lineNum++;
-    }
-}
-
-void Lexer::parseError( const std::string& expected, char got )
-{
+    int lineNum = 10;
     throw std::runtime_error(
         "Parsing error on line " + std::to_string( lineNum )
         + ": Expected " + expected
         + ", got " + got );
 }
 
-inline Integer Lexer::digit( int firstDigit )
-{
-    return loop<Integer, int>(
-        Integer{ firstDigit },
-        combineInteger( 10 ),
-        digitValue );
-}
+/***********************************************/
+// States definition
 
-inline Integer Lexer::hexDigit()
-{
-    char ch = m_St.topForce();
-    auto dig = hexDigitValue( ch );
-    m_St.pop();
+// Integer helper superclass
+template<int base, typename Subclass>
+struct IntegerState {
+    int value = 0;
 
-    if ( !dig.has_value() )
-        parseError( "hexadecimal digit", ch );
-
-    return loop<Integer, int>(
-        Integer{ dig.value() },
-        combineInteger( 16 ),
-        hexDigitValue );
-}
-
-inline Integer Lexer::octalDigit()
-{
-    char ch = m_St.topForce();
-    auto dig = octDigitValue( ch );
-    m_St.pop();
-
-    if ( !dig.has_value() )
-        parseError( "octal digit", ch );
-
-    return loop<Integer, int>(
-        Integer{ dig.value() },
-        combineInteger( 8 ),
-        octDigitValue );
-}
-
-inline Token Lexer::word( char firstChar )
-{
-    constexpr auto comb = []( const std::string& str, char ch )
+    Subclass add ( int val ) const
     {
-        return str + ch;
-    };
+        return Subclass { (value * base) + val};
+    }
+};
 
-    constexpr auto get = []( char ch ) -> std::optional<char>
-    {
-        if ( ( ch >= 'a' && ch <= 'z' )
-            || ( ch >= 'A' && ch <= 'Z' )
-            || ( ch >= '0' && ch <= '9' )
-            || ( ch == '_' ) )
-            return ch;
+struct S {};
+struct Decimal : public IntegerState<10, Decimal> {};
+struct Octal : public IntegerState<8, Octal> {};
+struct Hex : public IntegerState<16, Hex> {};
 
-        return std::nullopt;
-    };
+struct Word {
+    std::string value {};
+};
 
-    std::string word = loop<std::string, char>(
-        std::string{ firstChar }, comb, get );
+struct GreaterThan {};
+struct LowerThan {};
+struct Colon {};
 
-    auto kw = KEYWORD_MAP.byValueSafe( word );
+using State = std::variant<S, Decimal, Octal, Hex, Word, GreaterThan, LowerThan, Colon>;
+
+/***********************************************/
+// Table definiton
+using EffectReturn = std::variant<token::Token, State>;
+
+template <typename St>
+using Effect = std::function<EffectReturn(St, char)>;
+
+// On non-found character or whitespace, activate this
+template <typename St>
+using EffectOnEnd = std::function<EffectReturn(St)>;
+
+template <typename St>
+struct Table
+{
+    std::map<char, Effect<St>> m_Map {};
+    EffectOnEnd<St> m_Otherwise;
+};
+
+/***********************************************/
+// Scanning functions
+
+EffectReturn make_word ( const S&, char ch){
+    return Word{ { ch } };
+}
+
+EffectReturn add_letter ( const Word& state, char ch ){
+    return Word{ state.value + ch };
+}
+
+template <typename OutSt, typename InSt>
+EffectReturn state_factory ( const InSt &, char ){
+    return OutSt{};
+}
+
+template <token::OPERATOR op, typename St>
+EffectReturn operator_factory ( const St&, char ){
+    return op;
+}
+
+// template <token::CONTROL_SYMBOL cs, typename St>
+// EffectReturn control_symbol_factory ( const St&, char ){
+//     return cs;
+// }
+
+template <typename St>
+EffectReturn get_integer ( const St& i ){
+    return token::Integer { i.value };
+}
+
+/***********************************************/
+// Table creation helper function
+
+struct TableRange {
+    char low;
+    char high;
+
+    TableRange ( char l, char h )
+    : low (l)
+    , high (h)
+    {}
+
+    TableRange ( char x )
+    : low (x)
+    , high (x)
+    {}
+};
+
+template <typename St>
+Table<St> make_table(std::initializer_list<std::pair<TableRange, Effect<St>>> init, EffectOnEnd<St>) {
+    Table<St> table{};
+    for (const auto &[range, eff] : init) {
+        const auto &[low, high] = range;
+        for (char i = low; low <= high; ++i) {
+            table.m_Map.insert({i, eff});
+        }
+    }
+
+    return table;
+}
+
+/***********************************************/
+// Tables declaration
+
+const Table<S> S_TABLE = make_table<S>({
+    { {'&'}, state_factory<Octal, S> },
+    { {'$'}, state_factory<Hex, S> },
+    { {'<'}, state_factory<LowerThan, S>},
+    { {'>'}, state_factory<GreaterThan, S> },
+    { {':'}, state_factory<Colon, S>},
+    { {'0', '9'}, make_word },
+    { {'a', 'z'}, make_word },
+    { {'A', 'Z'}, make_word },
+    { {'_'}, make_word },
+    { {'='}, operator_factory<OPERATOR::EQUAL, S> },
+    { {'-'}, operator_factory<OPERATOR::MINUS, S> },
+    { {'*'}, operator_factory<OPERATOR::TIMES, S> },
+    { {'/'}, operator_factory<OPERATOR::DIVIDE, S> },
+    { {'%'}, operator_factory<OPERATOR::MODULO, S> }
+},
+[] ( const S& st ) {
+    return st;
+});
+
+const Table<Decimal> DECIMAL_TABLE = make_table<Decimal>({
+    { {'0', '9'}, []( const Decimal & st, char c ){
+        return st.add( c - '0');
+    }}
+}, get_integer<Decimal>);
+
+const Table<Octal> OCTAL_TABLE = make_table<Octal>({
+    {{'0', '7'}, []( const Octal & st, char c){
+        return st.add( c - '0' );
+    }}
+}, get_integer<Octal>);
+
+const Table<Hex> HEX_TABLE = make_table<Hex>({
+    { {'0', '9'}, []( const Hex & st, char c){
+        return st.add( c - '0' );
+    }},
+    { {'a', 'f'}, []( const Hex & st, char c){
+        return st.add(c - 'a' + 10);
+    }},
+    { {'A', 'F'}, []( const Hex & st, char c){
+        return st.add(c - 'A' + 10);
+    }}
+}, get_integer<Hex>);
+
+const Table<Word> WORD_TABLE = make_table<Word>({
+    { {'0', '9'}, add_letter },
+    { {'a', 'z'}, add_letter },
+    { {'A', 'Z'}, add_letter },
+    { {'_'}, add_letter }
+}, [] ( const Word& state ) -> EffectReturn {
+    auto kw = KEYWORD_MAP.byValueSafe( state.value );
     if ( kw.has_value() )
         return kw.value();
 
-    return Identifier{ word };
-}
+    return Identifier{ state.value };
+});
 
-inline Token Lexer::analyze( char ch )
-{
-    auto dig = digitValue( ch );
-    if ( dig.has_value() )
-        return digit( dig.value() );
+const Table<LowerThan> LOWER_THAN_TABLE = make_table<LowerThan>({
+    { {'='}, operator_factory<OPERATOR::LESS_EQUAL, LowerThan> },
+    { {'>'}, operator_factory<OPERATOR::NOT_EQUAL, LowerThan> },
+}, [] ( const LowerThan& ){
+    return OPERATOR::LESS;
+});
 
-    if ( ( ch >= 'a' && ch <= 'z' ) || ( ch >= 'A' && ch <= 'Z' ) )
-        return word( ch );
+const Table<GreaterThan> GREATER_THAN_TABLE = make_table<GreaterThan>({
+    { {'='}, operator_factory<OPERATOR::MORE_EQUAL, GreaterThan> }
+},[] ( const GreaterThan& ){
+    return OPERATOR::MORE;
+});
 
-    switch ( ch )
-    {
-    case '&':
-        return octalDigit();
-
-    case '$':
-        return hexDigit();
-
-    case '<':
-        if ( m_St.popIf( '>' ) )
-            return OPERATOR::NOT_EQUAL;
-        else if ( m_St.popIf( '=' ) )
-            return OPERATOR::LESS_EQUAL;
-        else
-            return OPERATOR::LESS;
-
-    case '>':
-        if ( m_St.popIf( '=' ) )
-            return OPERATOR::MORE_EQUAL;
-        else
-            return OPERATOR::MORE;
-
-    case ':':
-        if ( m_St.popIf( '=' ) )
-            return OPERATOR::ASSIGNEMENT;
-        else
-            return CONTROL_SYMBOL::COLON;
-    }
-
-    auto oper = SIMPLE_OPERATOR_MAP.find( ch );
-    if ( oper != SIMPLE_OPERATOR_MAP.end() )
-        return oper->second;
-
-    auto sym = CONTROL_SYMBOL_MAP.byValueSafe( ch );
-    if ( sym.has_value() )
-        return sym.value();
-
-    throw std::runtime_error( std::string( "Unrecognized character " ) + ch );
-}
-
-std::vector<Token> Lexer::scan()
-{
-    std::vector<Token> acc{};
-    std::optional<char> optCh;
-
-    skipWs();
-
-    while ( ( optCh = m_St.top() ).has_value() )
-    {
-        m_St.pop();
-        acc.push_back( analyze( optCh.value() ) );
-        skipWs();
-    }
-
-    return acc;
-}
-
-std::vector<Token> Lexer::scan( std::istream& str )
-{
-    return Lexer( str ).scan();
-}
+const Table<Colon> COLON_TABLE = make_table<Colon>({
+    { {'='}, operator_factory<OPERATOR::ASSIGNEMENT, Colon>}
+},[] ( const Colon& ){
+    return CONTROL_SYMBOL::COLON;
+});
