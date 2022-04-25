@@ -259,6 +259,12 @@ namespace lexer
         if ( kw.has_value() ){
             return kw.value();
         }
+        else if ( state.value == "true" ){
+            return Boolean{ true };
+        }
+        else if ( state.value == "false" ){
+            return Boolean{ false };
+        }
         else{
             return Identifier{ state.value };
         }
