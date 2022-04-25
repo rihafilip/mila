@@ -69,6 +69,11 @@ ast::BinaryOperator::OPERATOR tokenToAstOperator ( token::OPERATOR op )
 
 namespace parser
 {
+    Program Parser::parse( std::istream& str )
+    {
+        return Parser(str).program();
+    }
+
     std::optional<token::Token> stack_wrap_adaptor ( lexer::Lexer& lex )
     {
         return lex.next();
