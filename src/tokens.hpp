@@ -36,17 +36,6 @@ namespace token
         {OPERATOR::ASSIGNEMENT, ":="}
     };
 
-    /// Operators, that cannot be confused with others by reading only one character
-    const std::map<char, OPERATOR> SIMPLE_OPERATOR_MAP
-    {
-        {'=', OPERATOR::EQUAL},
-        {'+', OPERATOR::PLUS},
-        {'-', OPERATOR::MINUS},
-        {'*', OPERATOR::TIMES},
-        {'/', OPERATOR::DIVIDE},
-        {'%', OPERATOR::MODULO}
-    };
-
     /// Control symbols tokens
     enum class CONTROL_SYMBOL
     {
