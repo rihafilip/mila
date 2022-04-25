@@ -248,6 +248,16 @@ namespace ast
         Many<Variable> variables;
         Block code;
     };
+
+    std::string to_string ( const Type& type,               size_t level );
+    std::string to_string ( const Variable& var,            size_t level );
+    std::string to_string ( const Constant& constant,       size_t level );
+    std::string to_string ( const NamedConstant& constant,  size_t level );
+    std::string to_string ( const Expression& expr,         size_t level );
+    std::string to_string ( const Statement& stmt,          size_t level );
+    std::string to_string ( const Subprogram& subprogram,   size_t level );
+    std::string to_string ( const Program& program );
+
 }
 
 #endif // AST_HPP
