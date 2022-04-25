@@ -8,14 +8,19 @@
 
 namespace lexer
 {
+    /**
+     * @brief Get a character from stream and transition with it on the given state
+     *
+     * @param state State to transition from
+     * @param stream Stream to get characters from
+     * @return std::optional<token::Token> Token or nothing on EOF
+     */
+    std::optional<token::Token> transition_all ( const State& state, std::istream& stream );
+
     class Lexer
     {
     private:
         std::istream& m_Data;
-        State m_State = start_state(); // start symbol
-
-        void skip_ws();
-        std::optional<token::Token> handleEof();
 
     public:
         Lexer( std::istream& str )
@@ -29,6 +34,5 @@ namespace lexer
     };
 
 }
-
 
 #endif // LEXER_HPP
