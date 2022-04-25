@@ -14,7 +14,7 @@ OBJDIRS=$(dir $(OBJ))
 DUMMY:=$(shell mkdir --parents $(OBJDIRS))
 
 ## Compile
-.PHONY: all run runtests clean
+.PHONY: all run runtests clean gendoc
 all: $(BIN)
 
 $(BIN): $(OBJ)
@@ -31,6 +31,9 @@ runtests: $(BIN)
 
 clean:
 	rm -frd $(OBJ) $(BIN) Makefile.d doc
+
+gendoc: $(SRC) $(HEAD) Doxyfile
+	doxygen
 
 ## Rules
 build/%.o: src/%.cpp
