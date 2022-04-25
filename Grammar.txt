@@ -64,15 +64,19 @@ Arguments->
 MoreArguments -> , Expr MoreArguments
 MoreArguments->
 
-Expr -> SimpleExpr @ SimpleExpr // = <> < > <= >=
 Expr -> SimpleExpr
+# = <> < > <= >=
+MoreExpr -> = SimpleExpr
+MoreExpr ->
 
 SimpleExpr -> Term MoreSimpleExpr
-MoreSimpleExpr -> @ Term MoreSimpleExpr // + - or xor
+# + - or xor
+MoreSimpleExpr -> + Term MoreSimpleExpr
 MoreSimpleExpr ->
 
 Term -> Factor MoreTerm
-MoreTerm -> @ Factor MoreTerm // * / div mod and
+# * / div mod and
+MoreTerm -> * Factor MoreTerm
 MoreTerm ->
 
 Factor -> identifier FactorId

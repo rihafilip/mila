@@ -1,4 +1,6 @@
 #include "parser.hpp"
+#include "ast.hpp"
+#include "tokens.hpp"
 
 #include <functional>
 
@@ -41,6 +43,30 @@ Many<Variable> identifierToVariable( const Many<ast::Identifier>& ids, Type t )
 
     return out;
 }
+
+/*********************************************************************/
+
+const cont::Bimap<token::OPERATOR, ast::BinaryOperator::OPERATOR> OPERATORS_MAP
+{
+    {OPERATOR::EQUAL,       ast::BinaryOperator::OPERATOR::EQ},
+    {OPERATOR::NOT_EQUAL,   ast::BinaryOperator::OPERATOR::NOT_EQ},
+    {OPERATOR::LESS_EQUAL,  ast::BinaryOperator::OPERATOR::LESS_EQ},
+    {OPERATOR::LESS,        ast::BinaryOperator::OPERATOR::LESS},
+    {OPERATOR::MORE_EQUAL,  ast::BinaryOperator::OPERATOR::MORE_EQ},
+    {OPERATOR::MORE,        ast::BinaryOperator::OPERATOR::MORE},
+    {OPERATOR::PLUS,        ast::BinaryOperator::OPERATOR::PLUS},
+    {OPERATOR::MINUS,       ast::BinaryOperator::OPERATOR::MINUS},
+    {OPERATOR::TIMES,       ast::BinaryOperator::OPERATOR::TIMES},
+    {OPERATOR::DIVIDE,      ast::BinaryOperator::OPERATOR::DIVISION},
+    {OPERATOR::MODULO,      ast::BinaryOperator::OPERATOR::MODULO}
+};
+
+ast::BinaryOperator::OPERATOR tokenToAstOperator ( token::OPERATOR op )
+{
+    return OPERATORS_MAP.byKey(op);
+}
+
+/*********************************************************************/
 
 namespace parser
 {
@@ -102,6 +128,16 @@ namespace parser
 
     /*********************************************************************/
 
+    token::OPERATOR Parser::popOperator()
+    {
+        auto t = pop();
+        auto v = t.get<token::OPERATOR>();
+        if ( v.has_value() )
+            return v.value();
+
+        fail( "operator", t.variant );
+    }
+
     ast::Identifier Parser::identifier()
     {
         auto t = pop();
@@ -125,11 +161,26 @@ namespace parser
                 return BooleanConstant{ b.value };
             },
 
-                []( auto t ) -> Constant
+            []( auto t ) -> Constant
             {
                 fail( "constant", t );
             }
-            );
+        );
+    }
+
+    long long Parser::integer_literal()
+    {
+        return pop().visit(
+            []( token::Integer i ) -> long long
+            {
+                return i.value;
+            },
+
+            []( auto t ) -> long long
+            {
+                fail( "Integer literal", t );
+            }
+        );
     }
 
     /*********************************************************************/
@@ -467,5 +518,184 @@ namespace parser
         pop( KEYWORD::DO );
         auto st = stat();
         return { id, init, dir, target, st };
+    }
+
+    /*********************************************************************/
+
+    Expression Parser::expr()
+    {
+        auto lhs = simple_expr();
+        if ( lookupEq( {
+            OPERATOR::EQUAL, OPERATOR::NOT_EQUAL,
+            OPERATOR::LESS, OPERATOR::LESS_EQUAL,
+            OPERATOR::MORE, OPERATOR::MORE_EQUAL
+            } ) )
+        {
+            auto op = tokenToAstOperator(popOperator());
+            auto rhs = simple_expr();
+            return make_ptr<BinaryOperator>( op, lhs, rhs );
+        }
+
+        return lhs;
+    }
+
+    Expression Parser::simple_expr()
+    {
+        auto lhs = term();
+        return more_simple_expr( lhs );
+    }
+
+    Expression Parser::more_simple_expr( const Expression & lhs )
+    {
+        BinaryOperator::OPERATOR op;
+        if ( lookupEq( { token::OPERATOR::PLUS, token::OPERATOR::MINUS } ) )
+        {
+            op = tokenToAstOperator( popOperator() );
+        }
+        else if ( lookupEq( token::KEYWORD::OR ))
+        {
+            pop( token::KEYWORD::OR );
+            op = BinaryOperator::OPERATOR::OR;
+        }
+        else if ( lookupEq(token::KEYWORD::XOR ))
+        {
+            pop( token::KEYWORD::XOR );
+            op = BinaryOperator::OPERATOR::XOR;
+        }
+        else // rule: this -> epsilon
+        {
+            return lhs;
+        }
+
+        auto ter = term();
+        auto rhs = more_simple_expr( ter );
+        return make_ptr<BinaryOperator>( op, lhs, rhs );
+    }
+
+    Expression Parser::term()
+    {
+        auto lhs = factor();
+        return more_term( lhs );
+    }
+
+    Expression Parser::more_term( const Expression & lhs )
+    {
+        BinaryOperator::OPERATOR op;
+        if ( lookupEq( {token::OPERATOR::TIMES, token::OPERATOR::DIVIDE}) )
+        {
+            op = tokenToAstOperator( popOperator() );
+        }
+        else if ( lookupEq( token::KEYWORD::DIV ) )
+        {
+            pop( token::KEYWORD::DIV );
+            op = BinaryOperator::OPERATOR::DIV;
+        }
+        else if ( lookupEq( token::KEYWORD::MOD ) )
+        {
+            pop( token::KEYWORD::MOD );
+            op = BinaryOperator::OPERATOR::MOD;
+        }
+        else if ( lookupEq( token::KEYWORD::AND ) )
+        {
+            pop( token::KEYWORD::AND );
+            op = BinaryOperator::OPERATOR::AND;
+        }
+        else // rule: this -> epsilon
+        {
+            return lhs;
+        }
+
+        auto fac = factor();
+        auto rhs = more_term( fac );
+        return make_ptr<BinaryOperator>( op, lhs, rhs );
+    }
+
+    Expression Parser::factor()
+    {
+        if ( lookup<token::Identifier>() )
+        {
+            auto id = identifier();
+            if ( lookupEq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) ){
+                pop(CONTROL_SYMBOL::SQUARE_BRACKET_OPEN);
+                auto exp = expr();
+                pop(CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE);
+                return make_ptr<ArrayAccess>( id, exp );
+            }
+            else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
+                pop( CONTROL_SYMBOL::BRACKET_OPEN );
+                auto exp = expr();
+                pop ( CONTROL_SYMBOL::BRACKET_CLOSE );
+                return make_ptr<SubprogramCall>( id, exp );
+            }
+            else{
+                return VariableAccess{id};
+            }
+        }
+
+        // TODO constant
+
+        if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
+            pop( CONTROL_SYMBOL::BRACKET_OPEN );
+            auto exp = expr();
+            pop( CONTROL_SYMBOL::BRACKET_CLOSE );
+            return exp;
+        }
+
+        if ( lookupEq( KEYWORD::NOT ) ){
+            pop(KEYWORD::NOT);
+            auto fac = factor();
+            return make_ptr<UnaryOperator>( UnaryOperator::OPERATOR::NOT, fac );
+        }
+
+        if ( lookupEq( OPERATOR::MINUS ) ){
+            pop(OPERATOR::MINUS);
+            auto fac = factor();
+            return make_ptr<UnaryOperator>( UnaryOperator::OPERATOR::MINUS, fac );
+        }
+
+        if ( lookupEq( OPERATOR::PLUS ) ){
+            pop(OPERATOR::PLUS);
+            auto fac = factor();
+            return make_ptr<UnaryOperator>( UnaryOperator::OPERATOR::PLUS, fac );
+        }
+
+        fail("factor", top()->variant );
+    }
+
+    /*********************************************************************/
+
+    Type Parser::type()
+    {
+        if ( lookupEq( KEYWORD::ARRAY) )
+        {
+            pop( KEYWORD::ARRAY );
+            pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+
+            auto low = integer_literal();
+            pop( CONTROL_SYMBOL::DOT );
+            pop( CONTROL_SYMBOL::DOT );
+            auto high = integer_literal();
+
+            pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+
+            pop( KEYWORD::OF );
+            auto t = type();
+
+            return make_ptr<Array>( low, high, t );
+        }
+        else if (lookupEq( KEYWORD::INTEGER ) )
+        {
+            pop( KEYWORD::INTEGER );
+            return SimpleType::INTEGER;
+        }
+        else if ( lookupEq(KEYWORD::BOOLEAN) )
+        {
+            pop( KEYWORD::BOOLEAN );
+            return SimpleType::BOOLEAN;
+        }
+        else
+        {
+            fail( "type", top()->variant );
+        }
     }
 }

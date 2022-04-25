@@ -51,10 +51,14 @@ namespace parser
         void pop( token::CONTROL_SYMBOL cs );
         void pop( token::KEYWORD kw );
 
+        /// Pop a single operator
+        token::OPERATOR popOperator();
         /// Identifier parser, practically a pop wrapper
         ast::Identifier identifier();
         /// Constant parser, practically a pop wrapper
         Constant constant_literal();
+        /// Pop a single integer literal
+        long long integer_literal();
 
         /// Look if top token is of given type
         template <typename T>
@@ -127,6 +131,12 @@ namespace parser
         For for_p();
 
         Expression expr();
+        Expression simple_expr();
+        Expression more_simple_expr( const Expression & lhs );
+        Expression term();
+        Expression more_term( const Expression & lhs );
+        Expression factor();
+
         Many<Expression> arguments();
 
         Type type();
