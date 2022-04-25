@@ -15,7 +15,7 @@ namespace token
         EQUAL, NOT_EQUAL,
         LESS_EQUAL, LESS,
         MORE_EQUAL, MORE,
-        PLUS, MINUS, TIMES, DIVIDE, MODULO,
+        PLUS, MINUS, STAR, SLASH,
         ASSIGNEMENT
     };
 
@@ -30,9 +30,8 @@ namespace token
         {OPERATOR::MORE,        ">"},
         {OPERATOR::PLUS,        "+"},
         {OPERATOR::MINUS,       "-"},
-        {OPERATOR::TIMES,       "*"},
-        {OPERATOR::DIVIDE,      "/"},
-        {OPERATOR::MODULO,      "%"},
+        {OPERATOR::STAR,        "*"},
+        {OPERATOR::SLASH,       "/"},
         {OPERATOR::ASSIGNEMENT, ":="}
     };
 

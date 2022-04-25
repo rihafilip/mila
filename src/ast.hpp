@@ -115,6 +115,7 @@ namespace ast
             PLUS, MINUS, NOT
         };
 
+        OPERATOR op;
         Expression expression;
     };
 
@@ -124,8 +125,8 @@ namespace ast
         {
             EQ, NOT_EQ,
             LESS_EQ, LESS, MORE_EQ, MORE,
-            PLUS, MINUS, TIMES, DIVISION, MODULO,
-            DIV, MOD,
+            PLUS, MINUS, TIMES, DIVISION,
+            INTEGER_DIVISION, MODULO,
             AND, OR, XOR
         };
 
@@ -237,6 +238,7 @@ namespace ast
     /***********************************/
     // Program
 
+    // TODO don't split definitions
     struct Program
     {
         Identifier name;

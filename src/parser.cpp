@@ -56,9 +56,8 @@ const cont::Bimap<token::OPERATOR, ast::BinaryOperator::OPERATOR> OPERATORS_MAP
     {OPERATOR::MORE,        ast::BinaryOperator::OPERATOR::MORE},
     {OPERATOR::PLUS,        ast::BinaryOperator::OPERATOR::PLUS},
     {OPERATOR::MINUS,       ast::BinaryOperator::OPERATOR::MINUS},
-    {OPERATOR::TIMES,       ast::BinaryOperator::OPERATOR::TIMES},
-    {OPERATOR::DIVIDE,      ast::BinaryOperator::OPERATOR::DIVISION},
-    {OPERATOR::MODULO,      ast::BinaryOperator::OPERATOR::MODULO}
+    {OPERATOR::STAR,        ast::BinaryOperator::OPERATOR::TIMES},
+    {OPERATOR::SLASH,       ast::BinaryOperator::OPERATOR::DIVISION},
 };
 
 ast::BinaryOperator::OPERATOR tokenToAstOperator ( token::OPERATOR op )
@@ -581,19 +580,19 @@ namespace parser
     Expression Parser::more_term( const Expression & lhs )
     {
         BinaryOperator::OPERATOR op;
-        if ( lookupEq( {token::OPERATOR::TIMES, token::OPERATOR::DIVIDE}) )
+        if ( lookupEq( {token::OPERATOR::STAR, token::OPERATOR::SLASH}) )
         {
             op = tokenToAstOperator( popOperator() );
         }
         else if ( lookupEq( token::KEYWORD::DIV ) )
         {
             pop( token::KEYWORD::DIV );
-            op = BinaryOperator::OPERATOR::DIV;
+            op = BinaryOperator::OPERATOR::INTEGER_DIVISION;
         }
         else if ( lookupEq( token::KEYWORD::MOD ) )
         {
             pop( token::KEYWORD::MOD );
-            op = BinaryOperator::OPERATOR::MOD;
+            op = BinaryOperator::OPERATOR::MODULO;
         }
         else if ( lookupEq( token::KEYWORD::AND ) )
         {
@@ -623,7 +622,7 @@ namespace parser
             }
             else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
                 pop( CONTROL_SYMBOL::BRACKET_OPEN );
-                auto exp = expr();
+                auto exp = arguments();
                 pop ( CONTROL_SYMBOL::BRACKET_CLOSE );
                 return make_ptr<SubprogramCall>( id, exp );
             }
@@ -660,6 +659,24 @@ namespace parser
         }
 
         fail("factor", top()->variant );
+    }
+
+    /*********************************************************************/
+
+    Many<Expression> Parser::arguments()
+    {
+        if ( lookupEq( CONTROL_SYMBOL::BRACKET_CLOSE ) ){
+            return Many<Expression>{};
+        }
+
+        Many<Expression> exs { expr() };
+
+        while ( lookupEq( CONTROL_SYMBOL::COMMA ) ){
+            pop( CONTROL_SYMBOL::COMMA );
+            exs.push_back( expr() );
+        }
+
+        return exs;
     }
 
     /*********************************************************************/
