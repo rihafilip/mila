@@ -173,6 +173,7 @@ namespace lexer
         { {'A', 'Z'}, make_word },
         { {'_'}, make_word },
         { {'='}, operator_factory<OPERATOR::EQUAL, S> },
+        { {'+'}, operator_factory<OPERATOR::PLUS, S> },
         { {'-'}, operator_factory<OPERATOR::MINUS, S> },
         { {'*'}, operator_factory<OPERATOR::TIMES, S> },
         { {'/'}, operator_factory<OPERATOR::DIVIDE, S> },
