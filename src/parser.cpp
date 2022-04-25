@@ -636,7 +636,11 @@ namespace parser
             }
         }
 
-        // TODO constant
+        if ( lookup<token::Integer>() || lookup<token::Boolean>() )
+        {
+            auto c = constant_literal();
+            return ConstantExpression{ c };
+        }
 
         if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
             pop( CONTROL_SYMBOL::BRACKET_OPEN );
