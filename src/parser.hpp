@@ -2,6 +2,8 @@
 #define PARSER_HPP
 
 #include "ast.hpp"
+#include "lexer.hpp"
+#include "stack_wrap.hpp"
 #include "tokens.hpp"
 #include "variant_helpers.hpp"
 
@@ -10,6 +12,10 @@
 
 namespace parser
 {
+    using LexStack = cont::StackWrapper<token::Token, lexer::Lexer>;
+
+    std::optional<token::Token> stack_wrap_adaptor ( lexer::Lexer& lex );
+
     /// Alias for Token inside VariantWrapper
     using WrappedToken = VariantWrapper<
         token::OPERATOR, token::CONTROL_SYMBOL,
@@ -23,14 +29,14 @@ namespace parser
     {
     public:
         /// Run the parsing, return an AST
-        Program parse( const std::vector<token::Token>& tks );
+        static Program parse( std::istream& str );
 
     private:
-        /// Used stack
-        std::stack<token::Token, std::vector<token::Token>> m_Data;
+        /// Lexer
+        LexStack m_Data;
 
-        Parser( const std::vector<token::Token>& tks )
-            : m_Data( tks )
+        Parser( std::istream& str )
+            : m_Data( str, stack_wrap_adaptor )
         {}
 
         /// Look at the top token
@@ -39,10 +45,8 @@ namespace parser
         /// Pop one token from stack, throwing error on empty
         WrappedToken pop();
 
-        /**
-         * \defgroup Pop Pop a specific token, failing if it is not present
-         * @{
-         */
+        // Pop a specific token, failing if it is not present
+        // TODO refactor
         void pop( token::OPERATOR op );
         void pop( token::CONTROL_SYMBOL cs );
         void pop( token::KEYWORD kw );
@@ -51,7 +55,6 @@ namespace parser
         ast::Identifier identifier();
         /// Constant parser, practically a pop wrapper
         Constant constant_literal();
-        /// @}
 
         /// Look if top token is of given type
         template <typename T>
@@ -88,10 +91,8 @@ namespace parser
             return false;
         }
 
-        /**
-         * \defgroup Ind_parsers Individual token parsers
-         * @{
-         */
+        // Individual token parsers
+
         Program program();
 
         using Globals =
@@ -129,7 +130,6 @@ namespace parser
         Many<Expression> arguments();
 
         Type type();
-        /// @}
     };
 }
 

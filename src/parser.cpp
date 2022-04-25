@@ -44,24 +44,33 @@ Many<Variable> identifierToVariable( const Many<ast::Identifier>& ids, Type t )
 
 namespace parser
 {
+    std::optional<token::Token> stack_wrap_adaptor ( lexer::Lexer& lex )
+    {
+        return lex.next();
+    }
+
     std::optional<WrappedToken> Parser::top()
     {
-        if ( m_Data.empty() )
-            return std::nullopt;
+        auto el = m_Data.top();
 
-        return wrap( m_Data.top() );
+        if ( el.has_value() ){
+            return wrap( el.value() );
+        } else {
+            return std::nullopt;
+        }
     }
 
     /*********************************************************************/
 
     WrappedToken Parser::pop()
     {
-        if ( m_Data.empty() )
-            throw std::runtime_error( "Parser error: Unexpected EOF" );
+        auto el = m_Data.pop();
 
-        auto x = m_Data.top();
-        m_Data.pop();
-        return wrap( x );
+        if ( el.has_value() ){
+            return wrap( el.value() );
+        } else {
+            throw std::runtime_error( "Parser error: Unexpected EOF" );
+        }
     }
 
     void Parser::pop( token::OPERATOR op )
