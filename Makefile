@@ -23,9 +23,6 @@ $(BIN): $(OBJ)
 run: $(BIN)
 	./$(BIN)
 
-test: $(BIN)
-	./$(BIN) samples/arrayMax.mila
-
 runtests: $(BIN)
 	./runtests
 
