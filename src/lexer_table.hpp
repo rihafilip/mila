@@ -43,9 +43,9 @@ namespace lexer
     struct GreaterThan {};
     struct LowerThan {};
     struct Colon {};
-    // TODO dot
+    struct Dot{};
 
-    using State = std::variant<S, Decimal, OctalStart, Octal, HexStart, Hex, Word, GreaterThan, LowerThan, Colon>;
+    using State = std::variant<S, Decimal, OctalStart, Octal, HexStart, Hex, Word, GreaterThan, LowerThan, Colon, Dot>;
 
     /// Create a start state
     constexpr S start_state()
@@ -166,6 +166,7 @@ namespace lexer
         { {'<'}, state_factory<LowerThan, S>},
         { {'>'}, state_factory<GreaterThan, S> },
         { {':'}, state_factory<Colon, S>},
+        { {'.'}, state_factory<Dot, S>},
         { {'0', '9'}, [] ( const S&, char ch ){
             return Decimal { ch - '0' };
         }},
@@ -180,7 +181,6 @@ namespace lexer
         { {';'}, control_symbol_factory<CONTROL_SYMBOL::SEMICOLON, S>},
         { {':'}, control_symbol_factory<CONTROL_SYMBOL::COLON, S>},
         { {','}, control_symbol_factory<CONTROL_SYMBOL::COMMA, S>},
-        { {'.'}, control_symbol_factory<CONTROL_SYMBOL::DOT, S>},
         { {'('}, control_symbol_factory<CONTROL_SYMBOL::BRACKET_OPEN, S>},
         { {')'}, control_symbol_factory<CONTROL_SYMBOL::BRACKET_CLOSE, S>},
         { {'['}, control_symbol_factory<CONTROL_SYMBOL::SQUARE_BRACKET_OPEN, S>},
@@ -293,6 +293,13 @@ namespace lexer
         { {'='}, operator_factory<OPERATOR::ASSIGNEMENT, Colon>}
     },[] ( const Colon& ){
         return CONTROL_SYMBOL::COLON;
+    });
+
+    /***********************************************/
+    const Table<Dot> DOT_TABLE = make_table<Dot>({
+        { {'.'}, control_symbol_factory<CONTROL_SYMBOL::TWO_DOTS, Dot>}
+    },[](const Dot&){
+        return CONTROL_SYMBOL::DOT;
     });
 
     /// @}

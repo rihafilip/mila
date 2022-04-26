@@ -719,8 +719,7 @@ namespace parser
             match( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
 
             auto low = expr();
-            match( CONTROL_SYMBOL::DOT );
-            match( CONTROL_SYMBOL::DOT );
+            match( CONTROL_SYMBOL::TWO_DOTS );
             auto high = expr();
 
             match( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );

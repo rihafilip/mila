@@ -108,7 +108,8 @@ namespace lexer
             lam(WORD_TABLE),
             lam(GREATER_THAN_TABLE),
             lam(LOWER_THAN_TABLE),
-            lam(COLON_TABLE)
+            lam(COLON_TABLE),
+            lam(DOT_TABLE)
         );
     }
 

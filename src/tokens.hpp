@@ -38,22 +38,24 @@ namespace token
     /// Control symbols tokens
     enum class CONTROL_SYMBOL
     {
-        SEMICOLON, COLON, COMMA, DOT,
+        SEMICOLON, COLON, COMMA,
+        DOT, TWO_DOTS,
         BRACKET_OPEN, BRACKET_CLOSE,
         SQUARE_BRACKET_OPEN, SQUARE_BRACKET_CLOSE
     };
 
     /// Control symbol - the actual control character map
-    const cont::Bimap<CONTROL_SYMBOL, char> CONTROL_SYMBOL_MAP
+    const cont::Bimap<CONTROL_SYMBOL, std::string> CONTROL_SYMBOL_MAP
     {
-        {CONTROL_SYMBOL::SEMICOLON,             ';'},
-        {CONTROL_SYMBOL::COLON,                 ':'},
-        {CONTROL_SYMBOL::COMMA,                 ','},
-        {CONTROL_SYMBOL::DOT,                   '.'},
-        {CONTROL_SYMBOL::BRACKET_OPEN,          '('},
-        {CONTROL_SYMBOL::BRACKET_CLOSE,         ')'},
-        {CONTROL_SYMBOL::SQUARE_BRACKET_OPEN,   '['},
-        {CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE,  ']'}
+        {CONTROL_SYMBOL::SEMICOLON,             ";"},
+        {CONTROL_SYMBOL::COLON,                 ":"},
+        {CONTROL_SYMBOL::COMMA,                 ","},
+        {CONTROL_SYMBOL::DOT,                   "."},
+        {CONTROL_SYMBOL::TWO_DOTS,              ".."},
+        {CONTROL_SYMBOL::BRACKET_OPEN,          "("},
+        {CONTROL_SYMBOL::BRACKET_CLOSE,         ")"},
+        {CONTROL_SYMBOL::SQUARE_BRACKET_OPEN,   "["},
+        {CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE,  "]"}
     };
 
     /// Keyword token

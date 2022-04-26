@@ -12,7 +12,7 @@ namespace token
             },
             []( CONTROL_SYMBOL sym ) -> std::string
             {
-                return "<'" + std::string {CONTROL_SYMBOL_MAP.byKey( sym )} + "'>";
+                return "<'" + CONTROL_SYMBOL_MAP.byKey( sym ) + "'>";
             },
             []( KEYWORD kw ) -> std::string
             {
