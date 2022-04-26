@@ -26,7 +26,7 @@ namespace lexer
 
     /// Get a state, its transition table and a character and make a transition
     template <typename St>
-    std::optional<token::Token> transition ( const Table<St>& table, std::istream& stream, const St& state )
+    std::optional<token::Token> transition ( const Table<St>& table, Position& pos, std::istream& stream, const St& state )
     {
         // Bad stream
         if ( stream.fail() ){
@@ -56,6 +56,7 @@ namespace lexer
         // Try to find in map
         if ( auto i = table.m_Map.find( ch ); i != table.m_Map.end() ){
             stream.get();
+            pos.column++;
             auto token_or_state = i->second( state, ch );
 
             // Transition more on state, return token on token
@@ -64,9 +65,9 @@ namespace lexer
                 {
                     return tk;
                 },
-                [&stream] ( const State& new_state )
+                [&stream, &pos] ( const State& new_state )
                 {
-                    return transition_all( new_state, stream );
+                    return transition_all( new_state, pos, stream );
                 }
             );
         }
@@ -78,15 +79,22 @@ namespace lexer
 
         // Error
         else {
-            throw std::runtime_error( std::string {"Unexpected character "} + ch );
+            throw std::runtime_error(
+                std::string {"Unexpected character "}
+                + ch
+                + " (line "
+                + std::to_string( pos.line )
+                + ", column "
+                + std::to_string( pos.column )
+                + ")" );
         }
     }
 
-    std::optional<token::Token> transition_all ( const State& state, std::istream& stream )
+    std::optional<token::Token> transition_all ( const State& state, Position& pos, std::istream& stream )
     {
-        auto lam = [&stream] <typename St> ( const Table<St>& table ){
-            return [&stream, &table] ( const St& state ){
-                return transition( table, stream, state );
+        auto lam = [&stream, &pos] <typename St> ( const Table<St>& table ){
+            return [&stream, &pos, &table] ( const St& state ){
+                return transition( table, pos, stream, state );
             };
         };
 
@@ -110,9 +118,22 @@ namespace lexer
     {
         // Skip whitespaces
         while ( m_Data.good() && std::isspace( m_Data.peek() ) ){
-            m_Data.get();
+            char ch = m_Data.get();
+            if ( ch == '\n' ){
+                m_Position.line++;
+                m_Position.column = 0;
+            }
+            else {
+                m_Position.column++;
+            }
         }
 
-        return transition_all(start_state(), m_Data);
+        return transition_all(start_state(), m_Position, m_Data);
     }
+
+    Position Lexer::position() const
+    {
+        return m_Position;
+    }
+
 }

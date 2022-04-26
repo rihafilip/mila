@@ -95,6 +95,9 @@ namespace parser
             return false;
         }
 
+        /// Failure in parsing
+        [[noreturn]] void fail( const std::string& expected, const token::Token& got );
+
         // Individual token parsers
 
         Program program();

@@ -53,6 +53,11 @@ namespace cont
 
             return m_TopElement;
         }
+
+        const Container& get_data ()
+        {
+            return m_Data;
+        }
     };
 }
 

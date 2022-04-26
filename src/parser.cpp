@@ -3,22 +3,10 @@
 #include "tokens.hpp"
 
 #include <functional>
+#include <string>
 
 using namespace ast;
 using namespace token;
-
-/*********************************************************************/
-// Fail functions
-
-[[noreturn]] void fail( const std::string& expected, const Token& got )
-{
-    throw std::runtime_error(
-        "Parser error: Expected "
-        + expected
-        + ", but instead got "
-        + token::to_string( got )
-    );
-}
 
 /*********************************************************************/
 // Helper functions
@@ -132,6 +120,25 @@ namespace parser
 
     /*********************************************************************/
 
+    [[noreturn]] void Parser::fail( const std::string& expected, const Token& got )
+    {
+        const auto&[ column, line ] = m_Data.get_data().position();
+
+        throw std::runtime_error(
+            "Parser error: Expected "
+            + expected
+            + ", but instead got "
+            + token::to_string( got )
+            + " (line "
+            + std::to_string( line )
+            + ", column "
+            + std::to_string( column )
+            + ")"
+        );
+    }
+
+    /*********************************************************************/
+
     token::OPERATOR Parser::popOperator()
     {
         auto t = pop();
@@ -165,7 +172,7 @@ namespace parser
                 return BooleanConstant{ b.value };
             },
 
-            []( auto t ) -> Constant
+            [this]( auto t ) -> Constant
             {
                 fail( "constant", t );
             }
@@ -180,7 +187,7 @@ namespace parser
                 return i.value;
             },
 
-            []( auto t ) -> long long
+            [this]( auto t ) -> long long
             {
                 fail( "Integer literal", t );
             }
