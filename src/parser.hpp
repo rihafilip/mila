@@ -40,31 +40,32 @@ namespace parser
         {}
 
         /// Look at the top token
-        std::optional<WrappedToken> top();
+        std::optional<WrappedToken> lookup();
 
         /// Pop one token from stack, throwing error on empty
-        WrappedToken pop();
+        WrappedToken next_token();
 
-        // Pop a specific token, failing if it is not present
-        // TODO refactor
-        void pop( token::OPERATOR op );
-        void pop( token::CONTROL_SYMBOL cs );
-        void pop( token::KEYWORD kw );
+        /// Match an operator
+        void match( token::OPERATOR op );
+        /// Match a control symbol
+        void match( token::CONTROL_SYMBOL cs );
+        /// Match a keyword
+        void match( token::KEYWORD kw );
 
         /// Pop a single operator
-        token::OPERATOR popOperator();
-        /// Identifier parser, practically a pop wrapper
-        ast::Identifier identifier();
-        /// Constant parser, practically a pop wrapper
-        Constant constant_literal();
-        /// Pop a single integer literal
-        long long integer_literal();
+        token::OPERATOR match_operator();
+
+        /// Match identifier
+        ast::Identifier match_identifier();
+
+        /// Match constant
+        Constant match_constant();
 
         /// Look if top token is of given type
         template <typename T>
-        bool lookup()
+        bool lookup_type()
         {
-            auto x = top();
+            auto x = lookup();
             if ( x.has_value() && x->get<T>().has_value() )
                 return true;
 
@@ -73,22 +74,22 @@ namespace parser
 
         /// Look if top token is of given type and value
         template <typename T>
-        bool lookupEq( const T& v )
+        bool lookup_eq( const T& v )
         {
-            return lookupEq( { v } );
+            return lookup_eq( { v } );
         }
 
         /// Look if top token is of given type and one of given values
         template <typename T>
-        bool lookupEq( std::initializer_list<T> vs )
+        bool lookup_eq( std::initializer_list<T> vs )
         {
-            auto x = top();
+            auto x = lookup();
             if ( x.has_value() )
             {
                 return std::ranges::any_of( vs,
                     [&x]( const auto& a )
                     {
-                        return x->isEq( a );
+                        return x->is_eq( a );
                     } );
             }
 
@@ -128,7 +129,7 @@ namespace parser
 
         Block block();
         Statement stat();
-        Statement statId();
+        Statement stat_id();
 
         // _p is used because they are keywords
         If if_p();

@@ -18,7 +18,8 @@ void append( std::vector<T>& dest, const std::vector<T>& from )
     dest.insert( dest.end(), from.begin(), from.end() );
 }
 
-Many<Variable> identifierToVariable( const Many<ast::Identifier>& ids, Type t )
+/// Transform all idetifiers to variables with given type
+Many<Variable> identifiers_to_variables( const Many<ast::Identifier>& ids, Type t )
 {
     Many<Variable> out{};
     out.reserve( ids.size() );
@@ -48,7 +49,7 @@ const cont::Bimap<token::OPERATOR, ast::BinaryOperator::OPERATOR> OPERATORS_MAP
     {OPERATOR::SLASH,       ast::BinaryOperator::OPERATOR::DIVISION},
 };
 
-ast::BinaryOperator::OPERATOR tokenToAstOperator ( token::OPERATOR op )
+ast::BinaryOperator::OPERATOR token_to_ast_operator ( token::OPERATOR op )
 {
     return OPERATORS_MAP.byKey(op);
 }
@@ -67,7 +68,7 @@ namespace parser
         return lex.next();
     }
 
-    std::optional<WrappedToken> Parser::top()
+    std::optional<WrappedToken> Parser::lookup()
     {
         auto el = m_Data.top();
 
@@ -80,7 +81,7 @@ namespace parser
 
     /*********************************************************************/
 
-    WrappedToken Parser::pop()
+    WrappedToken Parser::next_token()
     {
         auto el = m_Data.pop();
 
@@ -91,28 +92,28 @@ namespace parser
         }
     }
 
-    void Parser::pop( token::OPERATOR op )
+    void Parser::match( token::OPERATOR op )
     {
-        auto tk = pop();
-        if ( tk.isEq( op ) )
+        auto tk = next_token();
+        if ( tk.is_eq( op ) )
             return;
 
         fail( token::to_string( op ), tk.variant );
     }
 
-    void Parser::pop( token::CONTROL_SYMBOL cs )
+    void Parser::match( token::CONTROL_SYMBOL cs )
     {
-        auto tk = pop();
-        if ( tk.isEq( cs ) )
+        auto tk = next_token();
+        if ( tk.is_eq( cs ) )
             return;
 
         fail( token::to_string( cs ), tk.variant );
     }
 
-    void Parser::pop( token::KEYWORD kw )
+    void Parser::match( token::KEYWORD kw )
     {
-        auto tk = pop();
-        if ( tk.isEq( kw ) )
+        auto tk = next_token();
+        if ( tk.is_eq( kw ) )
             return;
 
         fail( token::to_string( kw ), tk.variant );
@@ -139,9 +140,9 @@ namespace parser
 
     /*********************************************************************/
 
-    token::OPERATOR Parser::popOperator()
+    token::OPERATOR Parser::match_operator()
     {
-        auto t = pop();
+        auto t = next_token();
         auto v = t.get<token::OPERATOR>();
         if ( v.has_value() )
             return v.value();
@@ -149,9 +150,9 @@ namespace parser
         fail( "operator", t.variant );
     }
 
-    ast::Identifier Parser::identifier()
+    ast::Identifier Parser::match_identifier()
     {
-        auto t = pop();
+        auto t = next_token();
         auto v = t.get<token::Identifier>();
         if ( v.has_value() )
             return v->value;
@@ -159,9 +160,9 @@ namespace parser
         fail( "identifier", t.variant );
     }
 
-    Constant Parser::constant_literal()
+    Constant Parser::match_constant()
     {
-        return pop().visit(
+        return next_token().visit(
             []( token::Integer i ) -> Constant
             {
                 return IntegerConstant{ i.value };
@@ -180,34 +181,18 @@ namespace parser
         );
     }
 
-    long long Parser::integer_literal()
-    {
-        return pop().visit(
-            []( token::Integer i ) -> long long
-            {
-                return i.value;
-            },
-
-            [this]( auto t ) -> long long
-            {
-                fail( "Integer literal", t );
-                return 0; // dummy compiler check
-            }
-        );
-    }
-
     /*********************************************************************/
 
     Program Parser::program()
     {
-        pop( KEYWORD::PROGRAM );
-        auto name = identifier();
-        pop( CONTROL_SYMBOL::SEMICOLON );
+        match( KEYWORD::PROGRAM );
+        auto name = match_identifier();
+        match( CONTROL_SYMBOL::SEMICOLON );
         auto [consts, varias, subp] = globals();
         auto code = block();
-        pop( CONTROL_SYMBOL::DOT );
+        match( CONTROL_SYMBOL::DOT );
 
-        auto t = top();
+        auto t = lookup();
         if ( t.has_value() )
             fail( "EOF", t->variant );
 
@@ -220,21 +205,21 @@ namespace parser
     {
         auto [consts, vars, subps] = Globals{};
 
-        for ( auto v = top(); v.has_value(); v = top() )
+        for ( auto v = lookup(); v.has_value(); v = lookup() )
         {
-            if ( v->isEq( KEYWORD::CONST ) )
+            if ( v->is_eq( KEYWORD::CONST ) )
             {
                 append( consts, constants() );
             }
-            else if ( v->isEq( KEYWORD::VAR ) )
+            else if ( v->is_eq( KEYWORD::VAR ) )
             {
                 append( vars, variables() );
             }
-            else if ( v->isEq( KEYWORD::FUNCTION ) )
+            else if ( v->is_eq( KEYWORD::FUNCTION ) )
             {
                 subps.push_back( function() );
             }
-            else if ( v->isEq( KEYWORD::PROCEDURE ) )
+            else if ( v->is_eq( KEYWORD::PROCEDURE ) )
             {
                 subps.push_back( procedure() );
             }
@@ -251,12 +236,12 @@ namespace parser
 
     Many<NamedConstant> Parser::constants()
     {
-        pop( KEYWORD::CONST );
+        match( KEYWORD::CONST );
 
         Many<NamedConstant> acc{ single_constant() };
 
         // MoreConstants
-        while ( lookup<token::Identifier>() )
+        while ( lookup_type<token::Identifier>() )
         {
             acc.push_back( single_constant() );
         }
@@ -265,10 +250,10 @@ namespace parser
 
     NamedConstant Parser::single_constant()
     {
-        auto id = identifier();
-        pop( OPERATOR::EQUAL );
+        auto id = match_identifier();
+        match( OPERATOR::EQUAL );
         auto ex = expr();
-        pop( CONTROL_SYMBOL::SEMICOLON );
+        match( CONTROL_SYMBOL::SEMICOLON );
         return NamedConstant{ id, ex };
     }
 
@@ -276,12 +261,12 @@ namespace parser
 
     Many<Variable> Parser::variables()
     {
-        pop( KEYWORD::VAR );
+        match( KEYWORD::VAR );
 
         Many<Variable> acc{ single_variable() };
 
         /// MoreVariables
-        while ( lookup<token::Identifier>() )
+        while ( lookup_type<token::Identifier>() )
         {
             append( acc, single_variable() );
         }
@@ -292,24 +277,24 @@ namespace parser
     Many<Variable> Parser::single_variable()
     {
         auto ids = identifier_list();
-        pop( CONTROL_SYMBOL::COLON );
+        match( CONTROL_SYMBOL::COLON );
         auto t = type();
-        pop( CONTROL_SYMBOL::SEMICOLON );
+        match( CONTROL_SYMBOL::SEMICOLON );
 
-        return identifierToVariable( ids, t );
+        return identifiers_to_variables( ids, t );
     }
 
     /*********************************************************************/
 
     Many<ast::Identifier> Parser::identifier_list()
     {
-        Many<ast::Identifier> acc{ identifier() };
+        Many<ast::Identifier> acc{ match_identifier() };
 
         // MoreIdentifierList
-        while ( lookupEq( CONTROL_SYMBOL::COMMA ) )
+        while ( lookup_eq( CONTROL_SYMBOL::COMMA ) )
         {
-            pop( CONTROL_SYMBOL::COMMA );
-            acc.push_back( identifier() );
+            match( CONTROL_SYMBOL::COMMA );
+            acc.push_back( match_identifier() );
         }
 
         return acc;
@@ -319,10 +304,10 @@ namespace parser
 
     Subprogram Parser::procedure()
     {
-        pop( KEYWORD::PROCEDURE );
-        auto n = identifier();
+        match( KEYWORD::PROCEDURE );
+        auto n = match_identifier();
         auto ps = parameters();
-        pop( CONTROL_SYMBOL::SEMICOLON );
+        match( CONTROL_SYMBOL::SEMICOLON );
 
         auto b = body();
 
@@ -338,13 +323,13 @@ namespace parser
 
     Subprogram Parser::function()
     {
-        pop( KEYWORD::FUNCTION );
-        auto n = identifier();
+        match( KEYWORD::FUNCTION );
+        auto n = match_identifier();
         auto ps = parameters();
 
-        pop( CONTROL_SYMBOL::COLON );
+        match( CONTROL_SYMBOL::COLON );
         auto t = type();
-        pop( CONTROL_SYMBOL::SEMICOLON );
+        match( CONTROL_SYMBOL::SEMICOLON );
 
         auto b = body();
 
@@ -362,17 +347,17 @@ namespace parser
 
     Many<Variable> Parser::parameters()
     {
-        if ( !lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) )
+        if ( !lookup_eq( CONTROL_SYMBOL::BRACKET_OPEN ) )
         {
             return {};
         }
 
-        pop( CONTROL_SYMBOL::BRACKET_OPEN );
+        match( CONTROL_SYMBOL::BRACKET_OPEN );
 
         // ()
-        if ( lookupEq( CONTROL_SYMBOL::BRACKET_CLOSE ) )
+        if ( lookup_eq( CONTROL_SYMBOL::BRACKET_CLOSE ) )
         {
-            pop (CONTROL_SYMBOL::BRACKET_CLOSE );
+            match (CONTROL_SYMBOL::BRACKET_CLOSE );
             return {};
         }
 
@@ -380,39 +365,39 @@ namespace parser
         Many<Variable> acc{ single_parameter() };
 
         // MoreParameters
-        while ( lookupEq( CONTROL_SYMBOL::SEMICOLON ) )
+        while ( lookup_eq( CONTROL_SYMBOL::SEMICOLON ) )
         {
-            pop( CONTROL_SYMBOL::SEMICOLON );
+            match( CONTROL_SYMBOL::SEMICOLON );
             append( acc, single_parameter() );
         }
 
-        pop( CONTROL_SYMBOL::BRACKET_CLOSE );
+        match( CONTROL_SYMBOL::BRACKET_CLOSE );
         return acc;
     }
 
     Many<Variable> Parser::single_parameter()
     {
         auto ids = identifier_list();
-        pop( CONTROL_SYMBOL::COLON );
+        match( CONTROL_SYMBOL::COLON );
         auto t = type();
 
-        return identifierToVariable( ids, t );
+        return identifiers_to_variables( ids, t );
     }
 
     /*********************************************************************/
 
     std::optional<std::pair<Many<Variable>, Block>> Parser::body()
     {
-        if ( lookupEq( KEYWORD::FORWARD ) )
+        if ( lookup_eq( KEYWORD::FORWARD ) )
         {
-            pop( KEYWORD::FORWARD );
-            pop( CONTROL_SYMBOL::SEMICOLON );
+            match( KEYWORD::FORWARD );
+            match( CONTROL_SYMBOL::SEMICOLON );
             return std::nullopt;
         }
 
         auto vars = many_variables();
         auto b = block();
-        pop( CONTROL_SYMBOL::SEMICOLON );
+        match( CONTROL_SYMBOL::SEMICOLON );
         return { { vars, b } };
     }
 
@@ -420,7 +405,7 @@ namespace parser
     {
         Many<Variable> vars {};
 
-        while ( lookupEq( KEYWORD::VAR ) ){
+        while ( lookup_eq( KEYWORD::VAR ) ){
             append( vars, variables() );
         }
 
@@ -432,130 +417,130 @@ namespace parser
 
     Block Parser::block()
     {
-        pop( KEYWORD::BEGIN );
+        match( KEYWORD::BEGIN );
 
         // Stats
         Many<Statement> acc{ stat() };
-        while ( lookupEq( CONTROL_SYMBOL::SEMICOLON ) )
+        while ( lookup_eq( CONTROL_SYMBOL::SEMICOLON ) )
         {
-            pop( CONTROL_SYMBOL::SEMICOLON );
+            match( CONTROL_SYMBOL::SEMICOLON );
             acc.push_back( stat() );
         }
 
-        pop( KEYWORD::END );
+        match( KEYWORD::END );
 
         return Block{ acc };
     }
 
     Statement Parser::stat()
     {
-        if ( lookup<token::Identifier>() )
-            return statId();
+        if ( lookup_type<token::Identifier>() )
+            return stat_id();
 
-        if ( lookupEq( KEYWORD::BEGIN ) )
+        if ( lookup_eq( KEYWORD::BEGIN ) )
             return make_ptr<Block>( block() );
 
-        if ( lookupEq( KEYWORD::IF ) )
+        if ( lookup_eq( KEYWORD::IF ) )
             return make_ptr<If>( if_p() );
 
-        if ( lookupEq( KEYWORD::WHILE ) )
+        if ( lookup_eq( KEYWORD::WHILE ) )
             return make_ptr<While>( while_p() );
 
-        if ( lookupEq( KEYWORD::FOR ) )
+        if ( lookup_eq( KEYWORD::FOR ) )
             return make_ptr<For>( for_p() );
 
-        if ( lookupEq( KEYWORD::EXIT ) )
+        if ( lookup_eq( KEYWORD::EXIT ) )
         {
-            pop( KEYWORD::EXIT );
+            match( KEYWORD::EXIT );
             return ExitStatement{};
         }
 
         return EmptyStatement{};
     }
 
-    Statement Parser::statId()
+    Statement Parser::stat_id()
     {
-        auto id = identifier();
-        if ( lookupEq( OPERATOR::ASSIGNEMENT ) )
+        auto id = match_identifier();
+        if ( lookup_eq( OPERATOR::ASSIGNEMENT ) )
         {
-            pop( OPERATOR::ASSIGNEMENT );
+            match( OPERATOR::ASSIGNEMENT );
             auto ex = expr();
             return Assignment{ id, ex };
         }
 
-        else if ( lookupEq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
+        else if ( lookup_eq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
         {
-            pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+            match( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
             auto pos = expr();
-            pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
-            pop( OPERATOR::ASSIGNEMENT );
+            match( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+            match( OPERATOR::ASSIGNEMENT );
             auto val = expr();
             return ArrayAssignment{ id, pos, val };
         }
 
-        else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) )
+        else if ( lookup_eq( CONTROL_SYMBOL::BRACKET_OPEN ) )
         {
-            pop( CONTROL_SYMBOL::BRACKET_OPEN );
+            match( CONTROL_SYMBOL::BRACKET_OPEN );
             auto args = arguments();
-            pop( CONTROL_SYMBOL::BRACKET_CLOSE );
+            match( CONTROL_SYMBOL::BRACKET_CLOSE );
             return SubprogramCall{ id, args };
         }
 
         else
         {
-            fail( "assignment or subprogram call", top()->variant );
+            fail( "assignment or subprogram call", lookup()->variant );
         }
     }
 
     If Parser::if_p()
     {
-        pop( KEYWORD::IF );
+        match( KEYWORD::IF );
         auto exp = expr();
-        pop( KEYWORD::THEN );
+        match( KEYWORD::THEN );
         auto true_b = stat();
-        if ( !lookupEq( KEYWORD::ELSE ) )
+        if ( !lookup_eq( KEYWORD::ELSE ) )
         {
             return { exp, true_b, std::nullopt };
         }
-        pop( KEYWORD::ELSE );
+        match( KEYWORD::ELSE );
         auto false_b = stat();
         return { exp, true_b, false_b };
     }
 
     While Parser::while_p()
     {
-        pop( KEYWORD::WHILE );
+        match( KEYWORD::WHILE );
         auto exp = expr();
-        pop( KEYWORD::DO );
+        match( KEYWORD::DO );
         auto st = stat();
         return { exp, st };
     }
 
     For Parser::for_p()
     {
-        pop( KEYWORD::FOR );
-        auto id = identifier();
-        pop( OPERATOR::ASSIGNEMENT );
+        match( KEYWORD::FOR );
+        auto id = match_identifier();
+        match( OPERATOR::ASSIGNEMENT );
         auto init = expr();
 
         For::DIRECTION dir;
-        if ( lookupEq( KEYWORD::TO ) )
+        if ( lookup_eq( KEYWORD::TO ) )
         {
-            pop( KEYWORD::TO );
+            match( KEYWORD::TO );
             dir = For::DIRECTION::TO;
         }
-        else if ( lookupEq( KEYWORD::DOWNTO ) )
+        else if ( lookup_eq( KEYWORD::DOWNTO ) )
         {
-            pop( KEYWORD::DOWNTO );
+            match( KEYWORD::DOWNTO );
             dir = For::DIRECTION::DOWNTO;
         }
         else
         {
-            fail( "to or downto", top()->variant );
+            fail( "to or downto", lookup()->variant );
         }
 
         auto target = expr();
-        pop( KEYWORD::DO );
+        match( KEYWORD::DO );
         auto st = stat();
         return { id, init, dir, target, st };
     }
@@ -565,13 +550,13 @@ namespace parser
     Expression Parser::expr()
     {
         auto lhs = simple_expr();
-        if ( lookupEq( {
+        if ( lookup_eq( {
             OPERATOR::EQUAL, OPERATOR::NOT_EQUAL,
             OPERATOR::LESS, OPERATOR::LESS_EQUAL,
             OPERATOR::MORE, OPERATOR::MORE_EQUAL
             } ) )
         {
-            auto op = tokenToAstOperator(popOperator());
+            auto op = token_to_ast_operator(match_operator());
             auto rhs = simple_expr();
             return make_ptr<BinaryOperator>( op, lhs, rhs );
         }
@@ -588,18 +573,18 @@ namespace parser
     Expression Parser::more_simple_expr( const Expression & lhs )
     {
         BinaryOperator::OPERATOR op;
-        if ( lookupEq( { token::OPERATOR::PLUS, token::OPERATOR::MINUS } ) )
+        if ( lookup_eq( { token::OPERATOR::PLUS, token::OPERATOR::MINUS } ) )
         {
-            op = tokenToAstOperator( popOperator() );
+            op = token_to_ast_operator( match_operator() );
         }
-        else if ( lookupEq( token::KEYWORD::OR ))
+        else if ( lookup_eq( token::KEYWORD::OR ))
         {
-            pop( token::KEYWORD::OR );
+            match( token::KEYWORD::OR );
             op = BinaryOperator::OPERATOR::OR;
         }
-        else if ( lookupEq(token::KEYWORD::XOR ))
+        else if ( lookup_eq(token::KEYWORD::XOR ))
         {
-            pop( token::KEYWORD::XOR );
+            match( token::KEYWORD::XOR );
             op = BinaryOperator::OPERATOR::XOR;
         }
         else // rule: this -> epsilon
@@ -621,23 +606,23 @@ namespace parser
     Expression Parser::more_term( const Expression & lhs )
     {
         BinaryOperator::OPERATOR op;
-        if ( lookupEq( {token::OPERATOR::STAR, token::OPERATOR::SLASH}) )
+        if ( lookup_eq( {token::OPERATOR::STAR, token::OPERATOR::SLASH}) )
         {
-            op = tokenToAstOperator( popOperator() );
+            op = token_to_ast_operator( match_operator() );
         }
-        else if ( lookupEq( token::KEYWORD::DIV ) )
+        else if ( lookup_eq( token::KEYWORD::DIV ) )
         {
-            pop( token::KEYWORD::DIV );
+            match( token::KEYWORD::DIV );
             op = BinaryOperator::OPERATOR::INTEGER_DIVISION;
         }
-        else if ( lookupEq( token::KEYWORD::MOD ) )
+        else if ( lookup_eq( token::KEYWORD::MOD ) )
         {
-            pop( token::KEYWORD::MOD );
+            match( token::KEYWORD::MOD );
             op = BinaryOperator::OPERATOR::MODULO;
         }
-        else if ( lookupEq( token::KEYWORD::AND ) )
+        else if ( lookup_eq( token::KEYWORD::AND ) )
         {
-            pop( token::KEYWORD::AND );
+            match( token::KEYWORD::AND );
             op = BinaryOperator::OPERATOR::AND;
         }
         else // rule: this -> epsilon
@@ -652,19 +637,19 @@ namespace parser
 
     Expression Parser::factor()
     {
-        if ( lookup<token::Identifier>() )
+        if ( lookup_type<token::Identifier>() )
         {
-            auto id = identifier();
-            if ( lookupEq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) ){
-                pop(CONTROL_SYMBOL::SQUARE_BRACKET_OPEN);
+            auto id = match_identifier();
+            if ( lookup_eq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) ){
+                match(CONTROL_SYMBOL::SQUARE_BRACKET_OPEN);
                 auto exp = expr();
-                pop(CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE);
+                match(CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE);
                 return make_ptr<ArrayAccess>( id, exp );
             }
-            else if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
-                pop( CONTROL_SYMBOL::BRACKET_OPEN );
+            else if ( lookup_eq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
+                match( CONTROL_SYMBOL::BRACKET_OPEN );
                 auto exp = arguments();
-                pop ( CONTROL_SYMBOL::BRACKET_CLOSE );
+                match ( CONTROL_SYMBOL::BRACKET_CLOSE );
                 return make_ptr<SubprogramCall>( id, exp );
             }
             else{
@@ -672,52 +657,52 @@ namespace parser
             }
         }
 
-        if ( lookup<token::Integer>() || lookup<token::Boolean>() )
+        if ( lookup_type<token::Integer>() || lookup_type<token::Boolean>() )
         {
-            auto c = constant_literal();
+            auto c = match_constant();
             return ConstantExpression{ c };
         }
 
-        if ( lookupEq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
-            pop( CONTROL_SYMBOL::BRACKET_OPEN );
+        if ( lookup_eq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
+            match( CONTROL_SYMBOL::BRACKET_OPEN );
             auto exp = expr();
-            pop( CONTROL_SYMBOL::BRACKET_CLOSE );
+            match( CONTROL_SYMBOL::BRACKET_CLOSE );
             return exp;
         }
 
-        if ( lookupEq( KEYWORD::NOT ) ){
-            pop(KEYWORD::NOT);
+        if ( lookup_eq( KEYWORD::NOT ) ){
+            match(KEYWORD::NOT);
             auto fac = factor();
             return make_ptr<UnaryOperator>( UnaryOperator::OPERATOR::NOT, fac );
         }
 
-        if ( lookupEq( OPERATOR::MINUS ) ){
-            pop(OPERATOR::MINUS);
+        if ( lookup_eq( OPERATOR::MINUS ) ){
+            match(OPERATOR::MINUS);
             auto fac = factor();
             return make_ptr<UnaryOperator>( UnaryOperator::OPERATOR::MINUS, fac );
         }
 
-        if ( lookupEq( OPERATOR::PLUS ) ){
-            pop(OPERATOR::PLUS);
+        if ( lookup_eq( OPERATOR::PLUS ) ){
+            match(OPERATOR::PLUS);
             auto fac = factor();
             return make_ptr<UnaryOperator>( UnaryOperator::OPERATOR::PLUS, fac );
         }
 
-        fail("factor", top()->variant );
+        fail("factor", lookup()->variant );
     }
 
     /*********************************************************************/
 
     Many<Expression> Parser::arguments()
     {
-        if ( lookupEq( CONTROL_SYMBOL::BRACKET_CLOSE ) ){
+        if ( lookup_eq( CONTROL_SYMBOL::BRACKET_CLOSE ) ){
             return Many<Expression>{};
         }
 
         Many<Expression> exs { expr() };
 
-        while ( lookupEq( CONTROL_SYMBOL::COMMA ) ){
-            pop( CONTROL_SYMBOL::COMMA );
+        while ( lookup_eq( CONTROL_SYMBOL::COMMA ) ){
+            match( CONTROL_SYMBOL::COMMA );
             exs.push_back( expr() );
         }
 
@@ -728,36 +713,36 @@ namespace parser
 
     Type Parser::type()
     {
-        if ( lookupEq( KEYWORD::ARRAY) )
+        if ( lookup_eq( KEYWORD::ARRAY) )
         {
-            pop( KEYWORD::ARRAY );
-            pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+            match( KEYWORD::ARRAY );
+            match( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
 
             auto low = expr();
-            pop( CONTROL_SYMBOL::DOT );
-            pop( CONTROL_SYMBOL::DOT );
+            match( CONTROL_SYMBOL::DOT );
+            match( CONTROL_SYMBOL::DOT );
             auto high = expr();
 
-            pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+            match( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
 
-            pop( KEYWORD::OF );
+            match( KEYWORD::OF );
             auto t = type();
 
             return make_ptr<Array>( low, high, t );
         }
-        else if (lookupEq( KEYWORD::INTEGER ) )
+        else if (lookup_eq( KEYWORD::INTEGER ) )
         {
-            pop( KEYWORD::INTEGER );
+            match( KEYWORD::INTEGER );
             return SimpleType::INTEGER;
         }
-        else if ( lookupEq(KEYWORD::BOOLEAN) )
+        else if ( lookup_eq(KEYWORD::BOOLEAN) )
         {
-            pop( KEYWORD::BOOLEAN );
+            match( KEYWORD::BOOLEAN );
             return SimpleType::BOOLEAN;
         }
         else
         {
-            fail( "type", top()->variant );
+            fail( "type", lookup()->variant );
         }
     }
 }

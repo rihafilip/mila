@@ -48,7 +48,7 @@ public:
      * @param t value we want to compare equal to
      */
     template <typename T>
-    constexpr bool isEq ( const T& t )
+    constexpr bool is_eq ( const T& t )
     {
         auto v = get<T>();
         if ( v.has_value() )
