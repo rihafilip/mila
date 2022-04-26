@@ -24,55 +24,55 @@ namespace ast
 
     /*****************************************************************/
 
-    std::string to_string ( UnaryOperator::OPERATOR op, size_t level ){
+    std::string to_string ( UnaryOperator::OPERATOR op ){
         switch (op) {
         case UnaryOperator::OPERATOR::PLUS:
-            return line("+", level);
+            return "+";
         case UnaryOperator::OPERATOR::MINUS:
-            return line("-", level);
+            return "-";
         case UnaryOperator::OPERATOR::NOT:
-            return line("NOT", level);
+            return "NOT";
         default:
-            return line("?", level);
+            return "?";
         }
     }
 
-    std::string to_string ( BinaryOperator::OPERATOR op, size_t level ){
+    std::string to_string ( BinaryOperator::OPERATOR op ){
         switch (op) {
         case BinaryOperator::OPERATOR::EQ:
-            return line("EQ", level);
+            return "EQ";
         case BinaryOperator::OPERATOR::NOT_EQ:
-            return line("NOT EQ", level);
+            return "NOT EQ";
 
         case BinaryOperator::OPERATOR::LESS_EQ:
-            return line("LESS EQ", level);
+            return "LESS EQ";
         case BinaryOperator::OPERATOR::MORE_EQ:
-            return line("MORE EQ", level);
+            return "MORE EQ";
         case BinaryOperator::OPERATOR::LESS:
-            return line("LESS", level);
+            return "LESS";
         case BinaryOperator::OPERATOR::MORE:
-            return line("MORE", level);
+            return "MORE";
 
         case BinaryOperator::OPERATOR::PLUS:
-            return line("PLUS", level);
+            return "PLUS";
         case BinaryOperator::OPERATOR::MINUS:
-            return line("MINUS", level);
+            return "MINUS";
         case BinaryOperator::OPERATOR::TIMES:
-            return line("TIMES", level);
+            return "TIMES";
         case BinaryOperator::OPERATOR::DIVISION:
-            return line("DIVISION", level);
+            return "DIVISION";
 
         case BinaryOperator::OPERATOR::INTEGER_DIVISION:
-            return line("INTEGER DIVISION", level);
+            return "INTEGER DIVISION";
         case BinaryOperator::OPERATOR::MODULO:
-            return line("MODULO", level);
+            return "MODULO";
 
         case BinaryOperator::OPERATOR::AND:
-            return line("AND", level);
+            return "AND";
         case BinaryOperator::OPERATOR::OR:
-            return line("OR", level);
+            return "OR";
         case BinaryOperator::OPERATOR::XOR:
-            return line("XOR", level);
+            return "XOR";
         default:
             return "?";
         }
@@ -96,7 +96,9 @@ namespace ast
                 }
             },
             [level] (const ptr<Array>& arr) -> std::string{
-                return to_string( arr->elementType, level )
+                return line ( "ARRAY:", level )
+                    + line ( "Of:", level + 1)
+                    + to_string( arr->elementType, level+ 2)
                     + line ( "Low:", level + 1)
                     + to_string(arr->lowBound, level+2)
                     + line ( "High:", level + 1)
@@ -146,13 +148,11 @@ namespace ast
                 return to_string(*sub, level);
             },
             [level] ( ptr<UnaryOperator> unary ){
-                return line("UNARY", level)
-                    + to_string(unary->op, level+1)
+                return line("UNARY <'" + to_string(unary->op) + "'>", level)
                     + to_string(unary->expression, level+1);
             },
             [level]( ptr<BinaryOperator> bin ){
-                return line("BINARY", level)
-                    + to_string( bin->op, level+1 )
+                return line("BINARY <'" + to_string( bin->op ) + "'>" , level)
                     + to_string( bin->left, level+1 )
                     + to_string( bin->right, level+1 );
             }
@@ -245,11 +245,12 @@ namespace ast
             [level]( const FunctionDecl & decl ){
                 return line("FUNCION DECLARATION <" + decl.name + ">", level)
                     + line( "RETURN TYPE: ", level)
-                    + to_string(decl.returnType, level )
-                    + line( "PARAMS:", level ) + to_string( decl.parameters, level+1 );
+                    + to_string(decl.returnType, level + 1 )
+                    + line( "PARAMS:", level )
+                    + to_string( decl.parameters, level+1 );
             },
             [level]( const Procedure & proc ){
-                return line("PROCEDURE DECLARATION <" + proc.name + ">", level)
+                return line("PROCEDURE <" + proc.name + ">", level)
                     + line( "PARAMS:", level )
                     + to_string( proc.parameters, level+1 )
                     + line( "VARS:", level )
@@ -258,7 +259,7 @@ namespace ast
                     + to_string( make_ptr<Block>(proc.code), level+1 );
             },
             [level]( const Function & fun ){
-                return line("PROCEDURE DECLARATION <" + fun.name + ">", level)
+                return line("FUNCTION <" + fun.name + ">", level)
                     + line( "RETURN TYPE: ", level)
                     + to_string(fun.returnType, level+1)
                     + line( "VARS:", level )
