@@ -97,8 +97,10 @@ namespace ast
             },
             [level] (const ptr<Array>& arr) -> std::string{
                 return to_string( arr->elementType, level )
-                    + line ( "Low: <" + std::to_string(arr->lowBound) + ">", level + 1)
-                    + line ( "High: <" + std::to_string(arr->highBound) + ">", level + 1);
+                    + line ( "Low:", level + 1)
+                    + to_string(arr->lowBound, level+2)
+                    + line ( "High:", level + 1)
+                    + to_string(arr->highBound, level+2);
             }
         );
     }

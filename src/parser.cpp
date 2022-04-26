@@ -265,9 +265,9 @@ namespace parser
     {
         auto id = identifier();
         pop( OPERATOR::EQUAL );
-        auto c = constant_literal();
+        auto ex = expr();
         pop( CONTROL_SYMBOL::SEMICOLON );
-        return NamedConstant{ id, c };
+        return NamedConstant{ id, ex };
     }
 
     /*********************************************************************/
@@ -400,10 +400,23 @@ namespace parser
             return std::nullopt;
         }
 
-        auto vars = variables();
+        auto vars = many_variables();
         auto b = block();
+        pop( CONTROL_SYMBOL::SEMICOLON );
         return { { vars, b } };
     }
+
+    Many<Variable> Parser::many_variables ()
+    {
+        Many<Variable> vars {};
+
+        while ( lookupEq( KEYWORD::VAR ) ){
+            append( vars, variables() );
+        }
+
+        return vars;
+    }
+
 
     /*********************************************************************/
 
@@ -704,10 +717,10 @@ namespace parser
             pop( KEYWORD::ARRAY );
             pop( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
 
-            auto low = integer_literal();
+            auto low = expr();
             pop( CONTROL_SYMBOL::DOT );
             pop( CONTROL_SYMBOL::DOT );
-            auto high = integer_literal();
+            auto high = expr();
 
             pop( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
 

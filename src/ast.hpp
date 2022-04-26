@@ -25,33 +25,6 @@ namespace ast
     }
 
     /***********************************/
-    // Types
-    enum class SimpleType
-    {
-        INTEGER, BOOLEAN
-    };
-
-    struct Array;
-    using Type = std::variant<SimpleType, ptr<Array>>;
-
-    struct Array
-    {
-    public:
-        int lowBound;
-        int highBound;
-        Type elementType;
-    };
-
-    /***********************************/
-    // Variables
-
-    struct Variable
-    {
-        Identifier name;
-        Type type;
-    };
-
-    /***********************************/
     // Constants
 
     struct BooleanConstant
@@ -65,12 +38,6 @@ namespace ast
     };
 
     using Constant = std::variant<BooleanConstant, IntegerConstant>;
-
-    struct NamedConstant
-    {
-        Identifier name;
-        Constant value;
-    };
 
     /***********************************/
     // Expressions
@@ -195,6 +162,39 @@ namespace ast
         DIRECTION direction;
         Expression target;
         Statement code;
+    };
+
+    /***********************************/
+    // Types
+    enum class SimpleType
+    {
+        INTEGER, BOOLEAN
+    };
+
+    struct Array;
+    using Type = std::variant<SimpleType, ptr<Array>>;
+
+    struct Array
+    {
+    public:
+        Expression lowBound;
+        Expression highBound;
+        Type elementType;
+    };
+
+    /***********************************/
+    // Variables
+
+    struct Variable
+    {
+        Identifier name;
+        Type type;
+    };
+
+    struct NamedConstant
+    {
+        Identifier name;
+        Expression value;
     };
 
     /***********************************/

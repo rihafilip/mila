@@ -124,6 +124,8 @@ namespace parser
         /// Returns Block if body is present, nullopt on forwarding
         std::optional<std::pair<Many<Variable>, Block>> body();
 
+        Many<Variable> many_variables ();
+
         Block block();
         Statement stat();
         Statement statId();

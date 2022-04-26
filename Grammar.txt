@@ -9,7 +9,7 @@ Globals ->
 Constants -> const SingleConstant MoreConstants
 MoreConstants -> SingleConstant MoreConstants
 MoreConstants ->
-SingleConstant -> identifier = constant ;
+SingleConstant -> identifier = Expr ;
 
 Variables -> var SingleVariable MoreVariables
 MoreVariables -> SingleVariable MoreVariables
@@ -30,7 +30,10 @@ MoreParameters ->
 SingleParameter -> IdentifierList : Type
 
 Body -> forward ;
-Body -> Variables Block ;
+Body -> ManyVariables Block ;
+
+ManyVariables -> Variables ManyVariables
+ManyVariables ->
 
 Block -> begin Stat Stats end
 Stats -> ; Stat Stats
@@ -90,6 +93,6 @@ FactorId -> [ Expr ]
 FactorId -> ( Arguments )
 FactorId ->
 
-Type -> array [ constant .. constant ] of Type
+Type -> array [ Expr .. Expr ] of Type
 Type -> integer
 Type -> boolean
