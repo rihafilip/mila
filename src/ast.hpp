@@ -118,6 +118,9 @@ namespace ast
         Expression value;
     };
 
+    struct ExitStatement
+    {};
+
     struct EmptyStatement
     {};
 
@@ -128,7 +131,8 @@ namespace ast
 
     using Statement = std::variant<
         SubprogramCall,
-        Assignment, ArrayAssignment, EmptyStatement,
+        Assignment, ArrayAssignment,
+        ExitStatement, EmptyStatement,
         ptr<Block>, ptr<If>, ptr<While>, ptr<For>>;
 
     struct Block

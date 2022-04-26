@@ -175,6 +175,7 @@ namespace parser
             [this]( auto t ) -> Constant
             {
                 fail( "constant", t );
+                return IntegerConstant{0}; // dummy compiler check
             }
         );
     }
@@ -190,6 +191,7 @@ namespace parser
             [this]( auto t ) -> long long
             {
                 fail( "Integer literal", t );
+                return 0; // dummy compiler check
             }
         );
     }
@@ -367,12 +369,20 @@ namespace parser
 
         pop( CONTROL_SYMBOL::BRACKET_OPEN );
 
+        // ()
+        if ( lookupEq( CONTROL_SYMBOL::BRACKET_CLOSE ) )
+        {
+            pop (CONTROL_SYMBOL::BRACKET_CLOSE );
+            return {};
+        }
+
+        // At least one parameter
         Many<Variable> acc{ single_parameter() };
 
         // MoreParameters
-        while ( lookupEq( CONTROL_SYMBOL::COMMA ) )
+        while ( lookupEq( CONTROL_SYMBOL::SEMICOLON ) )
         {
-            pop( CONTROL_SYMBOL::COMMA );
+            pop( CONTROL_SYMBOL::SEMICOLON );
             append( acc, single_parameter() );
         }
 
@@ -453,6 +463,12 @@ namespace parser
 
         if ( lookupEq( KEYWORD::FOR ) )
             return make_ptr<For>( for_p() );
+
+        if ( lookupEq( KEYWORD::EXIT ) )
+        {
+            pop( KEYWORD::EXIT );
+            return ExitStatement{};
+        }
 
         return EmptyStatement{};
     }

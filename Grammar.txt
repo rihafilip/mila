@@ -23,9 +23,12 @@ MoreIdentifierList ->
 Procedure -> procedure identifier Parameters ; Body
 Function -> function identifier Parameters : Type ; Body
 
-Parameters -> ( SingleParameter MoreParameters )
+Parameters -> ( Parameters'
+Parameters -> ( Parameters'
 Parameters ->
-MoreParameters -> , SingleParameter MoreParameters
+Parameters' -> )
+Parameters' -> SingleParameter MoreParameters )
+MoreParameters -> ; SingleParameter MoreParameters
 MoreParameters ->
 SingleParameter -> IdentifierList : Type
 
@@ -44,6 +47,7 @@ Stat -> Block
 Stat -> If
 Stat -> While
 Stat -> For
+Stat -> exit
 Stat ->
 
 StatId -> := Expr

@@ -180,6 +180,9 @@ namespace ast
             []( const EmptyStatement& ) -> std::string {
                 return "";
             },
+            [level]( const ExitStatement& ) -> std::string {
+                return line("EXIT", level);
+            },
             [level] ( ptr<Block> block ){
                 return line("BLOCK:", level)
                     + to_string(block->statements, level+1);
@@ -193,7 +196,7 @@ namespace ast
                 }
 
                 return line("IF:", level)
-                    + line ( "Condition:", level)
+                    + line ( "Condition:", level+1)
                     + to_string( if_->condition, level+2 )
                     + line("True case:", level+1)
                     + to_string (if_->trueCode, level+2)
