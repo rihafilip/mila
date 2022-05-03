@@ -1,5 +1,7 @@
 build
 Makefile.d
 *.o
-mila
 doc/
+samples/*
+!samples/*.mila
+.cache/

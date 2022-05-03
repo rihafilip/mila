@@ -1,42 +1,25 @@
-LD=g++
-LDFLAGS=
-CXX=g++
-CXXFLAGS=-std=c++20 -Wall -pedantic -Wno-long-long -g
-LIBS=
-
-BIN=mila
+CMAKE_MAKEFILE=build/Makefile
 
 SRC=$(shell find src -name '*.cpp')
 HEAD=$(shell find src -name '*.h')
-OBJ=$(patsubst src%, build%, $(patsubst %.cpp, %.o, $(SRC)))
-
-OBJDIRS=$(dir $(OBJ))
-DUMMY:=$(shell mkdir --parents $(OBJDIRS))
 
 ## Compile
-.PHONY: all run runtests clean gendoc
-all: $(BIN)
+.PHONY: all mila cmake runtests clean doc
+all: mila
+mila: $(CMAKE_MAKEFILE)
+	cd build && make
 
-$(BIN): $(OBJ)
-	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
+cmake: $(CMAKE_MAKEFILE)
+$(CMAKE_MAKEFILE): CMakeLists.txt
+	mkdir -p build
+	cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
 
-run: $(BIN)
-	./$(BIN)
-
-runtests: $(BIN)
+runtests: mila
 	./runtests
 
 clean:
-	rm -frd $(OBJ) $(BIN) Makefile.d doc
+	rm -frd build/ doc/
 
-gendoc: $(SRC) $(HEAD) Doxyfile
+doc: $(SRC) $(HEAD) Doxyfile
 	doxygen
 
-## Rules
-build/%.o: src/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LIBS)
-
-Makefile.d: $(SRC) $(HEAD)
-	$(CXX) -MM $(SRC) | sed -E 's/(^.*\.o:)/build\/\1/' > $@
-
--include Makefile.d

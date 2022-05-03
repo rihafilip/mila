@@ -21,7 +21,7 @@ namespace ast
     template< class T, class... Args >
     ptr<T> make_ptr( Args&&... args )
     {
-        return std::make_shared<T>( args... );
+        return std::shared_ptr<T>( new T { args... } );
     }
 
     /***********************************/
