@@ -1,10 +1,13 @@
+#include "compiler.hpp"
 #include "lexer.hpp"
 #include "ast.hpp"
 #include "parser.hpp"
 #include "tokens.hpp"
 
 #include <fstream>
+#include <ios>
 #include <iostream>
+#include <llvm/Support/raw_ostream.h>
 #include <stdexcept>
 #include <string>
 
@@ -46,7 +49,14 @@ void print_parser( const std::string& in_file )
 
 void compile( const std::string& in_file, const std::string& out_file )
 {
-    std::cerr << "TODO" << std::endl;
+    std::fstream inf ( in_file, std::ios_base::in );
+
+    auto ast = parser::Parser::parse( inf );
+
+    auto visitor = compiler::AstVisitor::compile( ast );
+    const auto& module = visitor->get_module();
+
+    module.print(llvm::outs(), nullptr);
 }
 
 int main( int argc, char const* argv [] )

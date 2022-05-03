@@ -9,8 +9,7 @@ all: mila
 mila: $(CMAKE_MAKEFILE)
 	cd build && make
 
-cmake: $(CMAKE_MAKEFILE)
-$(CMAKE_MAKEFILE): CMakeLists.txt
+cmake:
 	mkdir -p build
 	cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
 
