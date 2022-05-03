@@ -10,10 +10,10 @@
 
 constexpr const char * USAGE =
     "Usage: \n"
-    "mila <IN_FILE>\n"
+    "mila <IN_FILE> [FLAGS]\n"
     "\t-h\t\t Print this help\n"
     "\t-l\t\t Print lexer output\n"
-    "\t-p\t\t Print \n"
+    "\t-p\t\t Print parser output\n"
     "\t-o <OUT_FILE>\t Compile the input to OUT_FILE\n";
 
 void print_lexer( const std::string& in_file )
