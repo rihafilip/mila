@@ -48,6 +48,7 @@ Stat -> If
 Stat -> While
 Stat -> For
 Stat -> exit
+Stat -> break
 Stat ->
 
 StatId -> := Expr

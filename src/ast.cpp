@@ -183,6 +183,9 @@ namespace ast
             [level]( const ExitStatement& ) -> std::string {
                 return line("EXIT", level);
             },
+            [level]( const BreakStatement& ) -> std::string {
+                return line("BREAK", level);
+            },
             [level] ( ptr<Block> block ){
                 return line("BLOCK:", level)
                     + to_string(block->statements, level+1);

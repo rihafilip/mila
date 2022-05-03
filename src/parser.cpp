@@ -462,6 +462,11 @@ namespace parser
             match( KEYWORD::EXIT );
             return ExitStatement{};
         }
+        if ( lookup_eq( KEYWORD::BREAK ) )
+        {
+            match( KEYWORD::BREAK );
+            return BreakStatement{};
+        }
 
         return EmptyStatement{};
     }

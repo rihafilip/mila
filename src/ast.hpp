@@ -121,6 +121,9 @@ namespace ast
     struct ExitStatement
     {};
 
+    struct BreakStatement
+    {};
+
     struct EmptyStatement
     {};
 
@@ -132,7 +135,7 @@ namespace ast
     using Statement = std::variant<
         SubprogramCall,
         Assignment, ArrayAssignment,
-        ExitStatement, EmptyStatement,
+        ExitStatement, BreakStatement, EmptyStatement,
         ptr<Block>, ptr<If>, ptr<While>, ptr<For>>;
 
     struct Block
