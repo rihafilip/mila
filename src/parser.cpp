@@ -11,8 +11,8 @@ using namespace token;
 /*********************************************************************/
 // Helper functions
 
-template <typename T>
-void append( std::vector<T>& dest, const std::vector<T>& from )
+template <typename T1, typename T2>
+void append( std::vector<T1>& dest, const std::vector<T2>& from )
 {
     dest.reserve( from.size() );
     dest.insert( dest.end(), from.begin(), from.end() );
@@ -188,7 +188,7 @@ namespace parser
         match( KEYWORD::PROGRAM );
         auto name = match_identifier();
         match( CONTROL_SYMBOL::SEMICOLON );
-        auto [consts, varias, subp] = globals();
+        auto globs = globals();
         auto code = block();
         match( CONTROL_SYMBOL::DOT );
 
@@ -196,32 +196,40 @@ namespace parser
         if ( t.has_value() )
             fail( "EOF", t->variant );
 
-        return Program{ name, subp, consts, varias, code };
+        return Program{ name, globs, code };
     }
 
     /*********************************************************************/
 
-    Parser::Globals Parser::globals()
+    Many<Global> Parser::globals()
     {
-        auto [consts, vars, subps] = Globals{};
+        Many<Global> globals {};
 
-        for ( auto v = lookup(); v.has_value(); v = lookup() )
+        while ( true )
         {
-            if ( v->is_eq( KEYWORD::CONST ) )
+            if ( lookup_eq( KEYWORD::CONST ) )
             {
-                append( consts, constants() );
+                append( globals, constants() );
             }
-            else if ( v->is_eq( KEYWORD::VAR ) )
+            else if ( lookup_eq( KEYWORD::VAR ) )
             {
-                append( vars, variables() );
+                append( globals, variables() );
             }
-            else if ( v->is_eq( KEYWORD::FUNCTION ) )
+            else if ( lookup_eq( KEYWORD::FUNCTION ) )
             {
-                subps.push_back( function() );
+                wrap(function()).visit(
+                    [&globals]( const auto& f ){
+                        globals.push_back(f);
+                    }
+                );
             }
-            else if ( v->is_eq( KEYWORD::PROCEDURE ) )
+            else if ( lookup_eq( KEYWORD::PROCEDURE ) )
             {
-                subps.push_back( procedure() );
+                wrap(function()).visit(
+                    [&globals]( const auto& p ){
+                        globals.push_back(p);
+                    }
+                );
             }
             else
             {
@@ -229,7 +237,7 @@ namespace parser
             }
         }
 
-        return { consts, vars, subps };
+        return globals;
     }
 
     /*********************************************************************/
@@ -302,7 +310,7 @@ namespace parser
 
     /*********************************************************************/
 
-    Subprogram Parser::procedure()
+    std::variant<ProcedureDecl, Procedure> Parser::procedure()
     {
         match( KEYWORD::PROCEDURE );
         auto n = match_identifier();
@@ -321,7 +329,7 @@ namespace parser
         }
     }
 
-    Subprogram Parser::function()
+    std::variant<FunctionDecl, Function> Parser::function()
     {
         match( KEYWORD::FUNCTION );
         auto n = match_identifier();

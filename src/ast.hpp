@@ -236,20 +236,19 @@ namespace ast
         Block code;
     };
 
-    using Subprogram =
-        std::variant<ProcedureDecl, Procedure, FunctionDecl, Function>;
-
     /***********************************/
     // Program
 
-    // TODO don't split definitions
+    using Global =
+        std::variant<
+            ProcedureDecl, Procedure, FunctionDecl, Function,
+            NamedConstant, Variable
+        >;
+
     struct Program
     {
         Identifier name;
-        Many<Subprogram> subprograms;
-        Many<NamedConstant> constants;
-
-        Many<Variable> variables;
+        Many<Global> globals;
         Block code;
     };
 
@@ -259,7 +258,7 @@ namespace ast
     std::string to_string ( const NamedConstant& constant,  size_t level );
     std::string to_string ( const Expression& expr,         size_t level );
     std::string to_string ( const Statement& stmt,          size_t level );
-    std::string to_string ( const Subprogram& subprogram,   size_t level );
+    std::string to_string ( const Global& subprogram,       size_t level );
     std::string to_string ( const Program& program );
 
 }

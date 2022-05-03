@@ -103,10 +103,7 @@ namespace parser
 
         Program program();
 
-        using Globals =
-            std::tuple<Many<NamedConstant>, Many<Variable>, Many<Subprogram>>;
-
-        Globals globals();
+        Many<Global> globals();
 
         Many<NamedConstant> constants();
         NamedConstant single_constant();
@@ -116,8 +113,8 @@ namespace parser
 
         Many<ast::Identifier> identifier_list();
 
-        Subprogram procedure();
-        Subprogram function();
+        std::variant<ProcedureDecl, Procedure> procedure();
+        std::variant<FunctionDecl, Function> function();
 
         Many<Variable> parameters();
         Many<Variable> single_parameter();

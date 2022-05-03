@@ -234,7 +234,7 @@ namespace ast
         );
     }
 
-    std::string to_string ( const Subprogram& subprogram, size_t level )
+    std::string to_string ( const Global& subprogram, size_t level )
     {
         return wrap(subprogram).visit(
             [level]( const ProcedureDecl & decl ){
@@ -268,6 +268,12 @@ namespace ast
                     + to_string( fun.parameters, level+1 )
                     + line( "BLOCK:", level )
                     + to_string( make_ptr<Block>(fun.code), level+1 );
+            },
+            [level]( const NamedConstant& named ){
+                return to_string( named, level );
+            },
+            [level]( const Variable& var ){
+                return to_string( var, level );
             }
         );
     }
@@ -275,9 +281,7 @@ namespace ast
     std::string to_string ( const Program& program )
     {
         return "PROGRAM " + program.name + "\n"
-            + to_string ( program.subprograms, 1 )
-            + to_string ( program.constants, 1 )
-            + to_string ( program.variables, 1 )
+            + to_string ( program.globals, 1 )
             + to_string ( make_ptr<Block>(program.code), 1 );
     }
 
