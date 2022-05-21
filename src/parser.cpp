@@ -11,6 +11,14 @@ using namespace token;
 /*********************************************************************/
 // Helper functions
 
+/**
+ * @brief Append one vector to another
+ *
+ * @tparam T1 Type of first vecotr
+ * @tparam T2 Type of second vector
+ * @param dest Vector to append to
+ * @param from Vector to append from
+ */
 template <typename T1, typename T2>
 void append( std::vector<T1>& dest, const std::vector<T2>& from )
 {
@@ -18,7 +26,7 @@ void append( std::vector<T1>& dest, const std::vector<T2>& from )
     dest.insert( dest.end(), from.begin(), from.end() );
 }
 
-/// Transform all idetifiers to variables with given type
+/// Transform all identifiers to variables with given type
 Many<Variable> identifiers_to_variables( const Many<ast::Identifier>& ids, Type t )
 {
     Many<Variable> out{};
@@ -35,6 +43,7 @@ Many<Variable> identifiers_to_variables( const Many<ast::Identifier>& ids, Type 
 
 /*********************************************************************/
 
+/// Maping of token operators to AST operators
 const cont::Bimap<token::OPERATOR, ast::BinaryOperator::OPERATOR> OPERATORS_MAP
 {
     {OPERATOR::EQUAL,       ast::BinaryOperator::OPERATOR::EQ},
@@ -49,6 +58,7 @@ const cont::Bimap<token::OPERATOR, ast::BinaryOperator::OPERATOR> OPERATORS_MAP
     {OPERATOR::SLASH,       ast::BinaryOperator::OPERATOR::DIVISION},
 };
 
+/// Map a token operator to AST operator
 ast::BinaryOperator::OPERATOR token_to_ast_operator ( token::OPERATOR op )
 {
     return OPERATORS_MAP.byKey(op);

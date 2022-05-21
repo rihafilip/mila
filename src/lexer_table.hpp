@@ -21,6 +21,9 @@ namespace lexer
     struct IntegerState {
         int value = 0;
 
+        /** Add a new digit of certain value, shifting the previous value
+         * by the given base
+         */
         Subclass add ( int val ) const
         {
             return Subclass { (value * base) + val};
@@ -56,16 +59,14 @@ namespace lexer
     /// @}
 
     /***********************************************/
-    /// Return on state transition
+    /// Return on state transition -> new state or outputed token
     using TransitionReturn = std::variant<Token, State>;
 
     /// What to do on state
     template <typename St>
     using Transition = std::function<TransitionReturn(St, char)>;
 
-    /**
-     * Return nothing if extraction fails, otherwise returns token
-     */
+    /// Return nothing if extraction fails, otherwise returns token
     template <typename St>
     using ExtractToken = std::function<std::optional<Token>(St)>;
 
@@ -91,6 +92,7 @@ namespace lexer
         return op;
     }
 
+    /// Return a new control symbol on state transition
     template <token::CONTROL_SYMBOL cs, typename St>
     TransitionReturn control_symbol_factory( const St&, char){
         return cs;
@@ -113,23 +115,36 @@ namespace lexer
 
     /***********************************************/
 
-    /// Range of characters, if one character is given, the range is that single char
+    /// Range of characters to use in a transition
     struct TableRange {
         char low;
         char high;
 
+        /**
+         * @brief Transition on tokens betwen l and h, including both of them
+         */
         TableRange ( char l, char h )
         : low (l)
         , high (h)
         {}
 
+        /**
+         * @brief Transition on only one character
+         */
         TableRange ( char x )
         : low (x)
         , high (x)
         {}
     };
 
-    /// Table creation helper function
+    /**
+     * @brief Table creation helper function
+     *
+     * @tparam St State this table is tied to
+     * @param init List of transitions
+     * @param extr Function defining how to extract token
+     * @return Table<St> A new transition table
+     */
     template <typename St>
     Table<St> make_table(
         std::initializer_list<std::pair<TableRange, Transition<St>>> init,

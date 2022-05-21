@@ -128,7 +128,7 @@ namespace parser
         Statement stat();
         Statement stat_id();
 
-        // _p is used because they are keywords
+        // suffix _p is used because these are keywords
         If if_p();
         While while_p();
         For for_p();

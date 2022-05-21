@@ -27,6 +27,10 @@ namespace ast
     /***********************************/
     // Constants
 
+    /**
+     * \defgroup AST Abstract syntax tree representation
+     * @{
+     */
     struct BooleanConstant
     {
         bool value;
@@ -254,7 +258,12 @@ namespace ast
         Many<Global> globals;
         Block code;
     };
+    /// @}
 
+    /**
+     * @brief \defgroup PPAst Ast pretty printing functions
+     * @{
+     */
     std::string to_string ( const Type& type,               size_t level );
     std::string to_string ( const Variable& var,            size_t level );
     std::string to_string ( const Constant& constant,       size_t level );
@@ -263,6 +272,7 @@ namespace ast
     std::string to_string ( const Statement& stmt,          size_t level );
     std::string to_string ( const Global& subprogram,       size_t level );
     std::string to_string ( const Program& program );
+    /// @}
 
 }
 

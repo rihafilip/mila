@@ -17,6 +17,7 @@ namespace lexer
         constexpr static bool value = false;
     };
 
+    /// Specialisation of is_start_state for the start symbol
     template <>
     struct is_start_state<S> {
         constexpr static bool value = true;
