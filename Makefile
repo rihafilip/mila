@@ -4,18 +4,29 @@ SRC=$(shell find src -name '*.cpp')
 HEAD=$(shell find src -name '*.h')
 
 ## Compile
-.PHONY: all mila cmake runtests clean doc
+.PHONY: all mila cmake
 all: mila
 mila: $(CMAKE_MAKEFILE)
-	cd build && make
+	make -C "./build"
 
+# Implicit CMake generation
+$(CMAKE_MAKEFILE):
+	mkdir -p build
+	cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
+
+# Explicit CMake genration
 cmake:
 	mkdir -p build
 	cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
 
+
+## Run tests
+.PHONY: runtests
 runtests: mila
 	./runtests
 
+## Misc
+.PHONY: clean doc
 clean:
 	rm -frd build/ doc/
 
