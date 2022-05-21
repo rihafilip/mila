@@ -14,9 +14,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
-#include <memory>
 #include <optional>
-#include <stdexcept>
 #include <variant>
 
 namespace compiler
@@ -33,122 +31,51 @@ namespace compiler
         : m_Data{}
         {}
 
-        std::optional<llvm::Value*> find ( const std::string& ident )
-        {
-            auto i = m_Data.find( ident );
-            if ( i != m_Data.end() ){
-                return i->second;
-            }
+        /// Try to find a value to an identifier in the map
+        std::optional<llvm::Value*> find ( const std::string& ident ) const;
 
-            return std::nullopt;
-        }
-
-        void add ( const std::string& ident, llvm::Value* val )
-        {
-            auto i = m_Data.find( ident );
-            if ( i == m_Data.end() ){
-                m_Data.insert({ ident, val });
-            }
-
-            throw std::runtime_error( "Redefinition of " + ident );
-        }
+        /// Add an identifier and it's value to the map, throwing if it is a redefinition
+        void add ( const std::string& ident, llvm::Value* val );
     };
 
-    struct SubprogramData
+    struct SubprogramDeclarations
     {
         DeclarationMap m_Local;
-        const std::string m_Name;
-
-        llvm::Value* m_ReturnAddress;
-        llvm::BasicBlock* m_ReturnBlock;
-        llvm::BasicBlock* m_LoopContinuation;
-        bool m_IsFunction;
-        bool m_IsInLoop;
+        DeclarationMap m_Globals;
     };
 
-    // enum class StatementContinuation
-    // {
-    //     CONTINUE, BREAK, EXIT
-    // };
+    using Declarations = std::variant<DeclarationMap, SubprogramDeclarations>;
 
-    class AstVisitor
+    llvm::Value* find_or_throw ( const Declarations& decls, const std::string& ident );
+
+    /******************************************************************/
+
+    /**
+     * \defgroup AstVisitors AST visitors and code generator
+     *  @{
+     */
+
+    /// Visitor generating constants, expressions and types
+    struct AstVisitor
     {
-    private:
+    public:
         /// LLVM context
-        llvm::LLVMContext m_Context;
+        llvm::LLVMContext& m_Context;
 
         /// LLVM builder
-        llvm::IRBuilder<> m_Builder;
+        llvm::IRBuilder<>& m_Builder;
 
         /// LLVM module
-        llvm::Module m_Module;
+        llvm::Module& m_Module;
 
-        /// Declarations map
-        DeclarationMap m_Decls;
+        /// Current visible declarations
+        Declarations& m_Declarations;
 
-        /// Subprogram data in subprogram
-        std::optional<SubprogramData> m_SubprogramData;
-
-        AstVisitor ( const std::string& name )
-        : m_Context {}
-        , m_Builder { m_Context }
-        , m_Module{ name, m_Context }
-        , m_Decls {}
-        , m_SubprogramData { std::nullopt }
-        {}
-
+        /// Compile constant, expression ot type
         auto compile ( const auto& variant )
         {
             return std::visit( *this, variant );
         }
-
-        // Search in subprogram declarations, then in global declarations
-        llvm::Value* find_or_throw ( const std::string& ident )
-        {
-            if ( m_SubprogramData.has_value() )
-            {
-                auto val = m_SubprogramData->m_Local.find(ident);
-                if ( val.has_value() )
-                {
-                    return val.value();
-                }
-            }
-
-            auto val = m_Decls.find( ident );
-            if ( val.has_value() )
-            {
-                return val.value();
-            }
-
-            throw std::runtime_error( "Identifier " + ident + " not found" );
-        }
-
-        void enter_loop(llvm::BasicBlock* val)
-        {
-            m_SubprogramData->m_IsInLoop = true;
-            m_SubprogramData->m_LoopContinuation = val;
-        }
-
-        void exit_loop()
-        {
-            m_SubprogramData->m_IsInLoop = false;
-            m_SubprogramData->m_LoopContinuation = nullptr;
-        }
-
-    public:
-        static std::unique_ptr<AstVisitor> compile ( const Program& program )
-        {
-            std::unique_ptr<AstVisitor> visitor ( new AstVisitor{ program.name } );
-            visitor->compile_program( program );
-            return visitor;
-        }
-
-        const llvm::Module& get_module () const
-        {
-            return m_Module;
-        }
-
-        // TODO split the visitors
 
         // Constants
         llvm::ConstantInt* operator() ( const BooleanConstant& );
@@ -162,6 +89,33 @@ namespace compiler
         llvm::Value* operator() ( const ptr<UnaryOperator>& );
         llvm::Value* operator() ( const ptr<BinaryOperator>& );
 
+        // Types
+        llvm::Type* operator() ( SimpleType );
+        llvm::Type* operator() ( const ptr<Array>& );
+    };
+
+    /// Visitor generating statements in function and procedure
+    class SubprogramVisitor : public AstVisitor
+    {
+    public:
+        /// Current subprogram name
+        const std::string m_Name;
+
+        /// Last block in the subprogram
+        llvm::BasicBlock* m_ReturnBlock;
+
+        /// In function address of return value, in procedure nullopt
+        std::optional<llvm::Value*> m_ReturnAddress;
+
+        /// In loop the basic block that continues the looping, otherwise nullopt
+        std::optional<llvm::BasicBlock*> m_LoopContinuation;
+
+        /// Compile a statement
+        void compile_stm ( const Statement& variant )
+        {
+            return std::visit( *this, variant );
+        }
+
         // Statements
         void operator() ( const SubprogramCall& );
         void operator() ( const Assignment& );
@@ -174,9 +128,22 @@ namespace compiler
         void operator() ( const ptr<While>& );
         void operator() ( const ptr<For>& );
 
-        // Types
-        llvm::Type* operator() ( SimpleType );
-        llvm::Type* operator() ( const ptr<Array>& );
+        /// Compile the subprogram
+        void compile_subprogram ( Many<Variable> params, Many<Variable> variables, Block code );
+
+        /// Helper function to handle compiling of 'while' and 'for' loops
+        void compile_loop ( Expression condition, Statement block );
+    };
+
+    /// Visitor generating top level declarations and definitions
+    struct ProgramVisitor : public AstVisitor
+    {
+    public:
+        /// Compile a global definition
+        void compile_glob ( const Global& variant )
+        {
+            return std::visit( *this, variant );
+        }
 
         // Globals
         void operator() ( const ProcedureDecl& );
@@ -186,11 +153,43 @@ namespace compiler
         void operator() ( const NamedConstant& );
         void operator() ( const Variable& );
 
-private:
-        /// Compile the whole program
         void compile_program ( const Program& program );
     };
+    /// @}
 
+    /**
+     * @brief Code compiler. It is defined this way so even after the construction of code
+     * the context, builder and module are persistent, otherwise parts of the
+     * code become undefined and LLVM throws an error
+     */
+    class Compiler
+    {
+    private:
+        /// LLVM context
+        llvm::LLVMContext m_Context;
+
+        /// LLVM builder
+        llvm::IRBuilder<> m_Builder;
+
+        /// LLVM module
+        llvm::Module m_Module;
+
+        Compiler ( const std::string& name )
+        : m_Context {}
+        , m_Builder { m_Context }
+        , m_Module{ name, m_Context }
+        {}
+
+    public:
+        /**
+         * Compile the given program, returning a pointer to a struct that
+         * persist the inner LLVM structure
+         */
+        static std::unique_ptr<Compiler> compile ( const Program& program );
+
+        /// Get the generated module
+        const llvm::Module& get_module () const;
+    };
 }
 
 #endif // COMPILER_HPP

@@ -53,7 +53,7 @@ void compile( const std::string& in_file, const std::string& out_file )
 
     auto ast = parser::Parser::parse( inf );
 
-    auto visitor = compiler::AstVisitor::compile( ast );
+    auto visitor = compiler::Compiler::compile( ast );
     const auto& module = visitor->get_module();
 
     module.print(llvm::outs(), nullptr);
