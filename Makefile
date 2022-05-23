@@ -9,12 +9,12 @@ all: mila
 mila: $(CMAKE_MAKEFILE)
 	make -C "./build"
 
-# Implicit CMake generation
+# Implicit CMake generate
 $(CMAKE_MAKEFILE):
 	mkdir -p build
 	cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
 
-# Explicit CMake genration
+# Explicit CMake generate
 cmake:
 	mkdir -p build
 	cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug

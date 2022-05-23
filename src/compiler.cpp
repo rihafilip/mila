@@ -50,10 +50,10 @@ namespace compiler
 
     llvm::ConstantInt* AstVisitor::operator() ( const BooleanConstant& b )
     {
-        if ( b.value ){
+        if ( b.value ) {
             return m_Builder.getTrue();
         }
-        else{
+        else {
             return m_Builder.getFalse();
         }
     }
@@ -165,10 +165,10 @@ namespace compiler
     llvm::Type* AstVisitor::operator() ( SimpleType t )
     {
         switch (t) {
-        case SimpleType::BOOLEAN:
+        case ast::SimpleType::INTEGER:
             return m_Builder.getInt32Ty();
 
-        case ast::SimpleType::INTEGER:
+        case SimpleType::BOOLEAN:
             return m_Builder.getInt1Ty();
         }
     }
@@ -247,7 +247,7 @@ namespace compiler
     {
         for ( const auto& st : bl->statements )
         {
-            std::visit( *this, st );
+            compile_stm ( st );
         }
     }
 
@@ -306,7 +306,7 @@ namespace compiler
 
         case For::DIRECTION::DOWNTO:
             cond = make_ptr<BinaryOperator>(
-                BinaryOperator::OPERATOR::LESS_EQ, loopVar, fo->target );
+                BinaryOperator::OPERATOR::MORE_EQ, loopVar, fo->target );
             break;
         }
 
@@ -333,7 +333,7 @@ namespace compiler
         auto cond = compile( condition );
         m_Builder.CreateCondBr( cond, bodyBB, continueBB );
 
-        // this is done so nested loop don't break
+        // this is done so nested loops don't break
         auto prevLoop = m_LoopContinuation;
         m_LoopContinuation = continueBB;
 
@@ -444,7 +444,7 @@ namespace compiler
                 a.setName("x");
             }
         }
-        }
+    }
 
     void ProgramVisitor::compile_program ( const Program& program )
     {
