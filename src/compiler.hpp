@@ -21,6 +21,7 @@ namespace compiler
 {
     using namespace ast;
 
+    /// Simple wrapper around map for holding variables
     class DeclarationMap
     {
     private:
@@ -37,16 +38,6 @@ namespace compiler
         /// Add an identifier and it's value to the map, throwing if it is a redefinition
         void add ( const std::string& ident, llvm::Value* val );
     };
-
-    struct SubprogramDeclarations
-    {
-        DeclarationMap m_Local;
-        DeclarationMap m_Globals;
-    };
-
-    using Declarations = std::variant<DeclarationMap, SubprogramDeclarations>;
-
-    llvm::Value* find_or_throw ( const Declarations& decls, const std::string& ident );
 
     /******************************************************************/
 
@@ -68,14 +59,16 @@ namespace compiler
         /// LLVM module
         llvm::Module& m_Module;
 
-        /// Current visible declarations
-        Declarations& m_Declarations;
+        /// Local declarations
+        const DeclarationMap m_Locals;
 
         /// Compile constant, expression or type
         auto compile ( const auto& variant )
         {
             return std::visit( *this, variant );
         }
+
+        llvm::Value* local_or_global ( const std::string& name );
 
         // Constants
         llvm::ConstantInt* operator() ( const BooleanConstant& );

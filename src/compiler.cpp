@@ -28,34 +28,22 @@ namespace compiler
 
         throw std::runtime_error( "Redefinition of " + ident );
     }
-    llvm::Value* find_or_throw ( const Declarations& decls, const std::string& ident )
+
+    /******************************************************************/
+
+    llvm::Value* AstVisitor::local_or_global ( const std::string& name )
     {
-        return wrap( decls ).visit(
-            [&ident] ( const DeclarationMap& map ){
-                auto val = map.find(ident);
-                if ( val.has_value() )
-                {
-                    return val.value();
-                }
+        auto loc = m_Locals.find(name);
+        if ( loc.has_value() ){
+            return loc.value();
+        }
 
-                throw std::runtime_error( "Identifier " + ident + " not found" );
-            },
-            [&ident] ( const SubprogramDeclarations& subMaps ){
-                auto val = subMaps.m_Local.find(ident);
-                if ( val.has_value() )
-                {
-                    return val.value();
-                }
+        auto glob = m_Module.getNamedGlobal(name);
+        if ( glob == nullptr ){
+            throw std::runtime_error( "Usage of undeclared " + name );
+        }
 
-                val = subMaps.m_Globals.find( ident );
-                if ( val.has_value() )
-                {
-                    return val.value();
-                }
-
-                 throw std::runtime_error( "Identifier " + ident + " not found" );
-            }
-        );
+        return glob;
     }
 
     /******************************************************************/
@@ -79,7 +67,7 @@ namespace compiler
 
     llvm::Value* AstVisitor::operator() ( const VariableAccess& va )
     {
-        auto val = find_or_throw(m_Declarations, va.identifier);
+        auto val = local_or_global(va.identifier);
         return m_Builder.CreateLoad( m_Builder.getInt32Ty(), val, va.identifier );
     }
 
@@ -214,7 +202,7 @@ namespace compiler
         }
         else
         {
-            auto ptr = find_or_throw( m_Declarations, assign.variable );
+            auto ptr = local_or_global( assign.variable );
             m_Builder.CreateStore(val, ptr);
         }
     }
@@ -301,7 +289,7 @@ namespace compiler
     {
         // initialization
         // `for iterator ...`
-        auto iterator = find_or_throw(m_Declarations, fo->loopVariable);
+        auto iterator = local_or_global( fo->loopVariable );
         auto init = compile( fo->initialization );
         m_Builder.CreateStore( init, iterator );
 
@@ -538,9 +526,6 @@ namespace compiler
             // Parameters
             // TODO
 
-            // All declarations
-            Declarations decls = addLocal(m_Declarations, locals);
-
             // Return address
             std::optional<llvm::Value*> returnAddress;
             if ( retType.has_value() ) {
@@ -552,7 +537,7 @@ namespace compiler
 
             // Code
             SubprogramVisitor visitor {
-                { m_Context, m_Builder, m_Module, decls },
+                { m_Context, m_Builder, m_Module, locals },
                 name,
                 returnBB,
                 returnAddress,
@@ -569,7 +554,7 @@ namespace compiler
             else {
                 m_Builder.CreateRetVoid();
             }
-    }
+        }
 
 /******************************************************************/
 
@@ -577,8 +562,7 @@ namespace compiler
     {
         std::unique_ptr<Compiler> compiler ( new Compiler{ program.name } );
 
-        Declarations decls = DeclarationMap{};
-        ProgramVisitor pr { compiler->m_Context, compiler->m_Builder, compiler->m_Module, decls };
+        ProgramVisitor pr { compiler->m_Context, compiler->m_Builder, compiler->m_Module, {} };
         pr.add_external_funcs();
         pr.compile_program( program );
 
