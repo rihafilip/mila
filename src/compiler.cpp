@@ -245,10 +245,7 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ptr<Block>& bl )
     {
-        for ( const auto& st : bl->statements )
-        {
-            compile_stm ( st );
-        }
+        compile_block(*bl);
     }
 
     void SubprogramVisitor::operator() ( const ptr<If>& if_ )
@@ -313,9 +310,13 @@ namespace compiler
         compile_loop(cond, fo->code);
     }
 
+/******************************************************************/
+
     void SubprogramVisitor::compile_block ( const Block& code )
     {
-        throw std::runtime_error( "TODO" );
+        for ( const auto& st : code.statements ){
+            compile_stm( st );
+        }
     }
 
     void SubprogramVisitor::compile_loop ( Expression condition, Statement block )
