@@ -71,7 +71,7 @@ namespace compiler
         /// Current visible declarations
         Declarations& m_Declarations;
 
-        /// Compile constant, expression ot type
+        /// Compile constant, expression or type
         auto compile ( const auto& variant )
         {
             return std::visit( *this, variant );
@@ -128,8 +128,8 @@ namespace compiler
         void operator() ( const ptr<While>& );
         void operator() ( const ptr<For>& );
 
-        /// Compile the subprogram
-        void compile_subprogram ( Many<Variable> params, Many<Variable> variables, Block code );
+        /// Compile the subprogram code
+        void compile_block ( const Block& code );
 
         /// Helper function to handle compiling of 'while' and 'for' loops
         void compile_loop ( Expression condition, Statement block );
@@ -156,7 +156,17 @@ namespace compiler
         /// Add a linkage to external functions (writeln, write, readln)
         void add_external_funcs();
 
+        /// Compile the whole AST
         void compile_program ( const Program& program );
+
+        /// Compile a subprogram
+        void compile_subprogram (
+            const Identifier& name,
+            const Many<Variable>& parameters,
+            const Many<Variable>& variables,
+            const std::optional<Type>& retType,
+            const Block& code
+        );
     };
     /// @}
 

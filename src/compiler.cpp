@@ -325,7 +325,7 @@ namespace compiler
         compile_loop(cond, fo->code);
     }
 
-    void SubprogramVisitor::compile_subprogram ( Many<Variable> params, Many<Variable> variables, Block code )
+    void SubprogramVisitor::compile_block ( const Block& code )
     {
         throw std::runtime_error( "TODO" );
     }
@@ -367,9 +367,15 @@ namespace compiler
        throw std::runtime_error( "TODO" );
     }
 
-    void ProgramVisitor::operator() ( const Procedure& )
+    void ProgramVisitor::operator() ( const Procedure& proc )
     {
-        throw std::runtime_error( "TODO" );
+        compile_subprogram(
+            proc.name,
+            proc.parameters,
+            proc.variables,
+            std::nullopt,
+            proc.code
+        );
     }
 
     void ProgramVisitor::operator() ( const FunctionDecl& )
@@ -377,19 +383,41 @@ namespace compiler
        throw std::runtime_error( "TODO" );
     }
 
-    void ProgramVisitor::operator() ( const Function& )
+    void ProgramVisitor::operator() ( const Function& fun )
     {
-        throw std::runtime_error( "TODO" );
+        compile_subprogram(
+            fun.name,
+            fun.parameters,
+            fun.variables,
+            fun.returnType,
+            fun.code
+        );
     }
 
-    void ProgramVisitor::operator() ( const NamedConstant& )
+    void ProgramVisitor::operator() ( const NamedConstant& c )
     {
-        throw std::runtime_error( "TODO" );
+        auto val = compile( c.value );
+        new llvm::GlobalVariable(
+            m_Module,
+            val->getType(),
+            true, // Is a constant
+            llvm::GlobalVariable::ExternalLinkage,
+            0, // TODO actual value
+            c.name
+        );
     }
 
-    void ProgramVisitor::operator() ( const Variable& )
+    void ProgramVisitor::operator() ( const Variable& var )
     {
-        throw std::runtime_error( "TODO" );
+        auto type = compile( var.type );
+        new llvm::GlobalVariable(
+            m_Module,
+            type,
+            false, // Is a constant
+            llvm::GlobalVariable::ExternalLinkage,
+            0, // TODO actual value
+            var.name
+        );
     }
 
 
@@ -437,7 +465,110 @@ namespace compiler
             compile_glob ( g );
         }
 
-        throw std::runtime_error( "TODO" );
+        auto * mainFun = llvm::Function::Create(
+            llvm::FunctionType::get(
+                m_Builder.getInt32Ty(),
+                false
+            ),
+            llvm::Function::ExternalLinkage,
+            "main",
+            m_Module
+        );
+
+        auto BB = llvm::BasicBlock::Create(m_Context, "entry", mainFun);
+        m_Builder.SetInsertPoint(BB);
+        compile_subprogram("main", {}, {}, SimpleType::INTEGER, program.code);
+    }
+
+        void ProgramVisitor::compile_subprogram (
+            const Identifier& name,
+            const Many<Variable>& parameters,
+            const Many<Variable>& variables,
+            const std::optional<Type>& retType,
+            const Block& code
+        )
+        {
+            // Return type
+            llvm::Type * llvmReturnType;
+            if ( retType.has_value() ) {
+                llvmReturnType = compile( retType.value() );
+            }
+            else {
+                llvmReturnType = m_Builder.getVoidTy();
+            }
+
+            // Args
+            std::vector<llvm::Type*> llvmParams;
+            llvmParams.reserve( parameters.size() );
+            for ( const auto& p : parameters )
+            {
+                llvmParams.push_back( compile( p.type ) );
+            }
+
+            // The actual function
+            auto llvmFun = llvm::Function::Create(
+                llvm::FunctionType::get( llvmReturnType, llvmParams, false),
+                llvm::Function::ExternalLinkage,
+                name,
+                m_Module
+            );
+
+            // Name the arguments
+            size_t i = 0;
+            for ( auto& a : llvmFun->args() )
+            {
+                a.setName( parameters[i].name );
+                ++i;
+            }
+
+            // Entry and return basic blocks
+            auto entryBB = llvm::BasicBlock::Create(m_Context, "entry", llvmFun);
+            auto returnBB = llvm::BasicBlock::Create(m_Context, "return", llvmFun);
+
+            m_Builder.SetInsertPoint( entryBB );
+
+            // Local variables
+            DeclarationMap locals {};
+            for ( const auto& v : variables )
+            {
+                auto vAddr = m_Builder.CreateAlloca( compile(v.type) );
+                locals.add(v.name, vAddr);
+            }
+
+            // Parameters
+            // TODO
+
+            // All declarations
+            Declarations decls = addLocal(m_Declarations, locals);
+
+            // Return address
+            std::optional<llvm::Value*> returnAddress;
+            if ( retType.has_value() ) {
+                returnAddress = m_Builder.CreateAlloca( llvmReturnType );
+            }
+            else {
+                returnAddress = std::nullopt;
+            }
+
+            // Code
+            SubprogramVisitor visitor {
+                { m_Context, m_Builder, m_Module, decls },
+                name,
+                returnBB,
+                returnAddress,
+                std::nullopt // Not starting in a loop
+            };
+            visitor.compile_block( code );
+
+            // Return
+            m_Builder.SetInsertPoint( returnBB );
+            if ( returnAddress.has_value() ){
+                auto retVal = m_Builder.CreateLoad( llvmReturnType, returnAddress.value() );
+                m_Builder.CreateRet( retVal );
+            }
+            else {
+                m_Builder.CreateRetVoid();
+            }
     }
 
 /******************************************************************/
