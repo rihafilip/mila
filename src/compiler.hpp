@@ -152,6 +152,13 @@ namespace compiler
         /// Compile the whole AST
         void compile_program ( const Program& program );
 
+        /// Compile a subprogram declaration
+        llvm::Function* compile_subprogram_decl (
+            const Identifier& name,
+            const Many<Variable>& parameters,
+            const std::optional<Type>& retType
+        );
+
         /// Compile a subprogram
         void compile_subprogram (
             const Identifier& name,

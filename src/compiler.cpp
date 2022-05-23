@@ -350,9 +350,9 @@ namespace compiler
 /******************************************************************/
 
 
-    void ProgramVisitor::operator() ( const ProcedureDecl& )
+    void ProgramVisitor::operator() ( const ProcedureDecl& proc )
     {
-       throw std::runtime_error( "TODO" );
+        compile_subprogram_decl(proc.name, proc.parameters, std::nullopt);
     }
 
     void ProgramVisitor::operator() ( const Procedure& proc )
@@ -366,9 +366,9 @@ namespace compiler
         );
     }
 
-    void ProgramVisitor::operator() ( const FunctionDecl& )
+    void ProgramVisitor::operator() ( const FunctionDecl& fun )
     {
-       throw std::runtime_error( "TODO" );
+        compile_subprogram_decl(fun.name, fun.parameters, fun.returnType);
     }
 
     void ProgramVisitor::operator() ( const Function& fun )
@@ -407,7 +407,6 @@ namespace compiler
             var.name
         );
     }
-
 
 /******************************************************************/
 
@@ -468,13 +467,12 @@ namespace compiler
         compile_subprogram("main", {}, {}, SimpleType::INTEGER, program.code);
     }
 
-        void ProgramVisitor::compile_subprogram (
+/******************************************************************/
+
+    llvm::Function* ProgramVisitor::compile_subprogram_decl(
             const Identifier& name,
             const Many<Variable>& parameters,
-            const Many<Variable>& variables,
-            const std::optional<Type>& retType,
-            const Block& code
-        )
+        const std::optional<Type>& retType)
         {
             // Return type
             llvm::Type * llvmReturnType;
@@ -509,6 +507,26 @@ namespace compiler
                 ++i;
             }
 
+        return llvmFun;
+    }
+
+    void ProgramVisitor::compile_subprogram (
+        const Identifier& name,
+        const Many<Variable>& parameters,
+        const Many<Variable>& variables,
+        const std::optional<Type>& retType,
+        const Block& code
+    )
+    {
+        llvm::Function* llvmFun = m_Module.getFunction( name );
+
+        if ( llvmFun == nullptr ){
+            llvmFun = compile_subprogram_decl(name, parameters, retType);
+        }
+        else {
+            // TODO validate correct structure
+        }
+
             // Entry and return basic blocks
             auto entryBB = llvm::BasicBlock::Create(m_Context, "entry", llvmFun);
             auto returnBB = llvm::BasicBlock::Create(m_Context, "return", llvmFun);
@@ -529,7 +547,7 @@ namespace compiler
             // Return address
             std::optional<llvm::Value*> returnAddress;
             if ( retType.has_value() ) {
-                returnAddress = m_Builder.CreateAlloca( llvmReturnType );
+            returnAddress = m_Builder.CreateAlloca( llvmFun->getReturnType() );
             }
             else {
                 returnAddress = std::nullopt;
@@ -548,7 +566,7 @@ namespace compiler
             // Return
             m_Builder.SetInsertPoint( returnBB );
             if ( returnAddress.has_value() ){
-                auto retVal = m_Builder.CreateLoad( llvmReturnType, returnAddress.value() );
+            auto retVal = m_Builder.CreateLoad( llvmFun->getReturnType(), returnAddress.value() );
                 m_Builder.CreateRet( retVal );
             }
             else {
