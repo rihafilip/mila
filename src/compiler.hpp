@@ -62,8 +62,20 @@ namespace compiler
         /// Local declarations
         const DeclarationMap m_Locals;
 
-        /// Compile constant, expression or type
-        auto compile ( const auto& variant )
+        /// Compile constant
+        llvm::ConstantInt* compile_const ( const Constant& variant )
+        {
+            return std::visit( *this, variant );
+        }
+
+        /// Compile expression
+        llvm::Value* compile_expr ( const Expression& variant )
+        {
+            return std::visit( *this, variant );
+        }
+
+        /// Compile type
+        llvm::Type* compile_t ( const Type& variant )
         {
             return std::visit( *this, variant );
         }

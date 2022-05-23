@@ -73,7 +73,7 @@ namespace compiler
 
     llvm::Value* AstVisitor::operator() ( const ConstantExpression& c )
     {
-        return compile ( c.value );
+        return compile_const ( c.value );
     }
 
     llvm::Value* AstVisitor::operator() ( const ptr<ArrayAccess>& )
@@ -86,7 +86,7 @@ namespace compiler
         std::vector<llvm::Value*> args {};
         args.reserve(sub->arguments.size());
         for ( const auto& p : sub->arguments ){
-            args.push_back( compile( p ) );
+            args.push_back( compile_expr( p ) );
         }
 
         return m_Builder.CreateCall(m_Module.getFunction(sub->functionName), args, sub->functionName);
@@ -94,7 +94,7 @@ namespace compiler
 
     llvm::Value* AstVisitor::operator() ( const ptr<UnaryOperator>& un )
     {
-        auto val = compile( un->expression );
+        auto val = compile_expr( un->expression );
         switch ( un->op ){
         case UnaryOperator::OPERATOR::PLUS:
             return val;
@@ -111,8 +111,8 @@ namespace compiler
 
     llvm::Value* AstVisitor::operator() ( const ptr<BinaryOperator>& bin )
     {
-        auto lhs = compile( bin->left );
-        auto rhs = compile( bin->right );
+        auto lhs = compile_expr( bin->left );
+        auto rhs = compile_expr( bin->right );
 
         switch ( bin->op ){
             case BinaryOperator::OPERATOR::EQ:
@@ -185,7 +185,7 @@ namespace compiler
         std::vector<llvm::Value*> args;
 
         for ( const auto& a : sub.arguments ){
-            args.push_back( compile( a ) );
+            args.push_back( compile_expr( a ) );
         }
 
         m_Builder.CreateCall(m_Module.getFunction(sub.functionName), args, sub.functionName);
@@ -193,7 +193,7 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const Assignment& assign )
     {
-        auto val = compile( assign.value );
+        auto val = compile_expr( assign.value );
 
         // 'function_name := val' => assign return value
         if ( m_ReturnAddress.has_value() && m_Name == assign.variable )
@@ -260,7 +260,7 @@ namespace compiler
         auto continueBB = llvm::BasicBlock::Create( m_Context, "afterIf", parent );
 
         // conditional jump
-        auto cond = compile(if_->condition);
+        auto cond = compile_expr(if_->condition);
         m_Builder.CreateCondBr( cond, trueBB, falseBB );
 
         // compile true branch
@@ -290,7 +290,7 @@ namespace compiler
         // initialization
         // `for iterator ...`
         auto iterator = local_or_global( fo->loopVariable );
-        auto init = compile( fo->initialization );
+        auto init = compile_expr( fo->initialization );
         m_Builder.CreateStore( init, iterator );
 
         // Transform a for loop to while loop
@@ -330,7 +330,7 @@ namespace compiler
 
         // compile condition
         m_Builder.SetInsertPoint( condBB );
-        auto cond = compile( condition );
+        auto cond = compile_expr( condition );
         m_Builder.CreateCondBr( cond, bodyBB, continueBB );
 
         // this is done so nested loops don't break
@@ -384,7 +384,7 @@ namespace compiler
 
     void ProgramVisitor::operator() ( const NamedConstant& c )
     {
-        auto val = compile( c.value );
+        auto val = compile_expr( c.value );
         new llvm::GlobalVariable(
             m_Module,
             val->getType(),
@@ -397,7 +397,7 @@ namespace compiler
 
     void ProgramVisitor::operator() ( const Variable& var )
     {
-        auto type = compile( var.type );
+        auto type = compile_t( var.type );
         new llvm::GlobalVariable(
             m_Module,
             type,
@@ -477,7 +477,7 @@ namespace compiler
             // Return type
             llvm::Type * llvmReturnType;
             if ( retType.has_value() ) {
-                llvmReturnType = compile( retType.value() );
+            llvmReturnType = compile_t( retType.value() );
             }
             else {
                 llvmReturnType = m_Builder.getVoidTy();
@@ -488,7 +488,7 @@ namespace compiler
             llvmParams.reserve( parameters.size() );
             for ( const auto& p : parameters )
             {
-                llvmParams.push_back( compile( p.type ) );
+            llvmParams.push_back( compile_t( p.type ) );
             }
 
             // The actual function
@@ -537,7 +537,7 @@ namespace compiler
             DeclarationMap locals {};
             for ( const auto& v : variables )
             {
-                auto vAddr = m_Builder.CreateAlloca( compile(v.type) );
+            auto vAddr = m_Builder.CreateAlloca( compile_t(v.type) );
                 locals.add(v.name, vAddr);
             }
 
