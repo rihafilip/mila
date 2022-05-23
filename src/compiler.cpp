@@ -395,17 +395,43 @@ namespace compiler
 
 /******************************************************************/
 
-    void ProgramVisitor::compile_program ( const Program& program )
+    void ProgramVisitor::add_external_funcs()
     {
+        std::vector<llvm::Type*> int_arg (1, m_Builder.getInt32Ty());
+        llvm::FunctionType * fun_type = llvm::FunctionType::get(m_Builder.getInt32Ty(), int_arg , false);
+
         // create writeln function
         {
-            std::vector<llvm::Type*> Ints(1, m_Builder.getInt32Ty());
-            llvm::FunctionType * FT = llvm::FunctionType::get(m_Builder.getInt32Ty(), Ints, false);
-            llvm::Function * F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "writeln", m_Module);
-            for (auto & Arg : F->args())
-                Arg.setName("x");
+            llvm::Function * fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, "writeln", m_Module);
+            for (auto & a : fun->args())
+            {
+                a.setName("x");
+            }
         }
 
+        // create write function
+        {
+            llvm::Function * fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, "write", m_Module);
+            for (auto & a : fun->args())
+            {
+                a.setName("x");
+            }
+        }
+
+        // create readln
+        {
+            std::vector<llvm::Type*> read_arg (1, m_Builder.getInt32Ty()->getPointerTo());
+            llvm::FunctionType * read_type = llvm::FunctionType::get(m_Builder.getInt32Ty(), read_arg, false);
+            llvm::Function * fun = llvm::Function::Create( read_type, llvm::Function::ExternalLinkage, "readln", m_Module );
+            for (auto & a : fun->args())
+            {
+                a.setName("x");
+            }
+        }
+        }
+
+    void ProgramVisitor::compile_program ( const Program& program )
+    {
         for ( const auto& g : program.globals )
         {
             compile_glob ( g );
@@ -414,6 +440,7 @@ namespace compiler
         throw std::runtime_error( "TODO" );
     }
 
+/******************************************************************/
 
     std::unique_ptr<Compiler> Compiler::compile ( const Program& program )
     {
@@ -421,7 +448,7 @@ namespace compiler
 
         Declarations decls = DeclarationMap{};
         ProgramVisitor pr { compiler->m_Context, compiler->m_Builder, compiler->m_Module, decls };
-
+        pr.add_external_funcs();
         pr.compile_program( program );
 
         return compiler;

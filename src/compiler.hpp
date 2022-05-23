@@ -153,12 +153,17 @@ namespace compiler
         void operator() ( const NamedConstant& );
         void operator() ( const Variable& );
 
+        /// Add a linkage to external functions (writeln, write, readln)
+        void add_external_funcs();
+
         void compile_program ( const Program& program );
     };
     /// @}
 
     /**
-     * @brief Code compiler. It is defined this way so even after the construction of code
+     * @brief Code compiler
+     *
+     * It is defined this way so even after the construction of code
      * the context, builder and module are persistent, otherwise parts of the
      * code become undefined and LLVM throws an error
      */
