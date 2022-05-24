@@ -28,10 +28,144 @@ namespace compiler
 
         throw std::runtime_error( "Redefinition of " + ident );
     }
+/******************************************************************/
 
-    /******************************************************************/
+    llvm::Constant* ConstantVisitor::operator() ( const VariableAccess& name )
+    {
+        auto glob = m_Module.getNamedGlobal(name.identifier);
+        if ( glob == nullptr ){
+            throw std::runtime_error( "Usage of undeclared " + name.identifier );
+        }
 
-    llvm::Value* AstVisitor::local_or_global ( const std::string& name )
+        if ( ! glob->isConstant() ){
+            throw std::runtime_error( "Usage of variable "
+                + name.identifier
+                + " as a constant"
+            );
+        }
+
+        return glob;
+    }
+
+    llvm::Constant* ConstantVisitor::operator() ( const ConstantExpression& c)
+    {
+        return compile_const( c.value );
+    }
+
+    llvm::Constant* ConstantVisitor::operator() ( const ptr<ArrayAccess>& )
+    {
+        throw std::runtime_error( "Usage of array access as constant value." );
+    }
+
+    llvm::Constant* ConstantVisitor::operator() ( const ptr<SubprogramCall>& )
+    {
+        throw std::runtime_error( "Usage of subprogram call as constant value." );
+    }
+
+    llvm::Constant* ConstantVisitor::operator() ( const ptr<UnaryOperator>& un )
+    {
+        auto val = compile_cexpr( un->expression );
+        switch (un->op) {
+        case UnaryOperator::OPERATOR::PLUS:
+            return val;
+
+        case UnaryOperator::OPERATOR::MINUS:
+            return llvm::ConstantExpr::getNeg(val);
+
+        case UnaryOperator::OPERATOR::NOT:
+            return llvm::ConstantExpr::getNot(val);
+        }
+    }
+
+    llvm::Constant* ConstantVisitor::operator() ( const ptr<BinaryOperator>& bin )
+    {
+        auto lhs = compile_cexpr( bin->left );
+        auto rhs = compile_cexpr( bin->right );
+
+        switch ( bin->op ){
+            case BinaryOperator::OPERATOR::EQ:
+                return llvm::ConstantExpr::getCompare( llvm::CmpInst::ICMP_EQ, lhs, rhs);
+
+            case BinaryOperator::OPERATOR::NOT_EQ:
+                return llvm::ConstantExpr::getCompare( llvm::CmpInst::ICMP_NE, lhs, rhs);
+
+            case BinaryOperator::OPERATOR::LESS_EQ:
+                return llvm::ConstantExpr::getCompare( llvm::CmpInst::ICMP_SLE, lhs, rhs);
+
+            case BinaryOperator::OPERATOR::LESS:
+                return llvm::ConstantExpr::getCompare( llvm::CmpInst::ICMP_SLT, lhs, rhs);
+
+            case BinaryOperator::OPERATOR::MORE_EQ:
+                return llvm::ConstantExpr::getCompare( llvm::CmpInst::ICMP_SGE, lhs, rhs);
+
+            case BinaryOperator::OPERATOR::MORE:
+                return llvm::ConstantExpr::getCompare( llvm::CmpInst::ICMP_SGT, lhs, rhs);
+
+            case BinaryOperator::OPERATOR::PLUS:
+                return llvm::ConstantExpr::getAdd(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::MINUS:
+                return llvm::ConstantExpr::getSub(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::TIMES:
+                return llvm::ConstantExpr::getMul(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::DIVISION:
+            case BinaryOperator::OPERATOR::INTEGER_DIVISION:
+                return llvm::ConstantExpr::getSDiv(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::MODULO:
+                return llvm::ConstantExpr::getSRem(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::AND:
+                return llvm::ConstantExpr::getAnd(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::OR:
+                return llvm::ConstantExpr::getOr(lhs, rhs);
+
+            case BinaryOperator::OPERATOR::XOR:
+                return llvm::ConstantExpr::getXor(lhs, rhs);
+        }
+    }
+
+/******************************************************************/
+
+    llvm::ConstantInt* ConstantVisitor::operator() ( const BooleanConstant& b )
+    {
+        if ( b.value ) {
+            return m_Builder.getTrue();
+        }
+        else {
+            return m_Builder.getFalse();
+        }
+    }
+
+    llvm::ConstantInt* ConstantVisitor::operator() ( const IntegerConstant& c )
+    {
+        return m_Builder.getInt32( c.value );
+    }
+
+/******************************************************************/
+
+    llvm::Type* ConstantVisitor::operator() ( SimpleType t )
+    {
+        switch (t) {
+        case ast::SimpleType::INTEGER:
+            return m_Builder.getInt32Ty();
+
+        case SimpleType::BOOLEAN:
+            return m_Builder.getInt1Ty();
+        }
+    }
+
+    llvm::Type* ConstantVisitor::operator() ( const ptr<Array>& )
+    {
+        throw std::runtime_error( "TODO" );
+    }
+
+/******************************************************************/
+
+    llvm::Value* ExprVisitor::local_or_global ( const std::string& name )
     {
         auto loc = m_Locals.find(name);
         if ( loc.has_value() ){
@@ -46,42 +180,26 @@ namespace compiler
         return glob;
     }
 
-    /******************************************************************/
-
-    llvm::ConstantInt* AstVisitor::operator() ( const BooleanConstant& b )
-    {
-        if ( b.value ) {
-            return m_Builder.getTrue();
-        }
-        else {
-            return m_Builder.getFalse();
-        }
-    }
-
-    llvm::ConstantInt* AstVisitor::operator() ( const IntegerConstant& c )
-    {
-        return m_Builder.getInt32( c.value );
-    }
-
 /******************************************************************/
 
-    llvm::Value* AstVisitor::operator() ( const VariableAccess& va )
+    llvm::Value* ExprVisitor::operator() ( const VariableAccess& va )
     {
         auto val = local_or_global(va.identifier);
         return m_Builder.CreateLoad( m_Builder.getInt32Ty(), val, va.identifier );
     }
 
-    llvm::Value* AstVisitor::operator() ( const ConstantExpression& c )
+    llvm::Value* ExprVisitor::operator() ( const ConstantExpression& c )
     {
         return compile_const ( c.value );
     }
 
-    llvm::Value* AstVisitor::operator() ( const ptr<ArrayAccess>& )
+    llvm::Value* ExprVisitor::operator() ( const ptr<ArrayAccess>& )
     {
         throw std::runtime_error( "TODO" );
     }
 
-    llvm::Value* AstVisitor::operator() ( const ptr<SubprogramCall>& sub )
+    // TODO writeln
+    llvm::Value* ExprVisitor::operator() ( const ptr<SubprogramCall>& sub )
     {
         std::vector<llvm::Value*> args {};
         args.reserve(sub->arguments.size());
@@ -92,7 +210,7 @@ namespace compiler
         return m_Builder.CreateCall(m_Module.getFunction(sub->functionName), args, sub->functionName);
     }
 
-    llvm::Value* AstVisitor::operator() ( const ptr<UnaryOperator>& un )
+    llvm::Value* ExprVisitor::operator() ( const ptr<UnaryOperator>& un )
     {
         auto val = compile_expr( un->expression );
         switch ( un->op ){
@@ -106,10 +224,9 @@ namespace compiler
         case UnaryOperator::OPERATOR::NOT:
             return m_Builder.CreateNot(val);
         }
-
     }
 
-    llvm::Value* AstVisitor::operator() ( const ptr<BinaryOperator>& bin )
+    llvm::Value* ExprVisitor::operator() ( const ptr<BinaryOperator>& bin )
     {
         auto lhs = compile_expr( bin->left );
         auto rhs = compile_expr( bin->right );
@@ -162,24 +279,7 @@ namespace compiler
 
 /******************************************************************/
 
-    llvm::Type* AstVisitor::operator() ( SimpleType t )
-    {
-        switch (t) {
-        case ast::SimpleType::INTEGER:
-            return m_Builder.getInt32Ty();
-
-        case SimpleType::BOOLEAN:
-            return m_Builder.getInt1Ty();
-        }
-    }
-
-    llvm::Type* AstVisitor::operator() ( const ptr<Array>& )
-    {
-        throw std::runtime_error( "TODO" );
-    }
-
-/******************************************************************/
-
+    // TODO redundant
     void SubprogramVisitor::operator() ( const SubprogramCall& sub )
     {
         std::vector<llvm::Value*> args;
@@ -385,13 +485,13 @@ namespace compiler
 
     void ProgramVisitor::operator() ( const NamedConstant& c )
     {
-        auto val = compile_expr( c.value );
+        auto val = compile_cexpr( c.value );
         new llvm::GlobalVariable(
             m_Module,
             val->getType(),
             true, // Is a constant
             llvm::GlobalVariable::ExternalLinkage,
-            0, // TODO actual value
+            val,
             c.name
         );
     }
@@ -399,12 +499,13 @@ namespace compiler
     void ProgramVisitor::operator() ( const Variable& var )
     {
         auto type = compile_t( var.type );
+        auto zero = llvm::Constant::getNullValue(type);
         new llvm::GlobalVariable(
             m_Module,
             type,
             false, // Is a constant
             llvm::GlobalVariable::ExternalLinkage,
-            0, // TODO actual value
+            zero,
             var.name
         );
     }
@@ -471,42 +572,42 @@ namespace compiler
 /******************************************************************/
 
     llvm::Function* ProgramVisitor::compile_subprogram_decl(
-            const Identifier& name,
-            const Many<Variable>& parameters,
+        const Identifier& name,
+        const Many<Variable>& parameters,
         const std::optional<Type>& retType)
-        {
-            // Return type
-            llvm::Type * llvmReturnType;
-            if ( retType.has_value() ) {
+    {
+        // Return type
+        llvm::Type * llvmReturnType;
+        if ( retType.has_value() ) {
             llvmReturnType = compile_t( retType.value() );
-            }
-            else {
-                llvmReturnType = m_Builder.getVoidTy();
-            }
+        }
+        else {
+            llvmReturnType = m_Builder.getVoidTy();
+        }
 
-            // Args
-            std::vector<llvm::Type*> llvmParams;
-            llvmParams.reserve( parameters.size() );
-            for ( const auto& p : parameters )
-            {
+        // Args
+        std::vector<llvm::Type*> llvmParams;
+        llvmParams.reserve( parameters.size() );
+        for ( const auto& p : parameters )
+        {
             llvmParams.push_back( compile_t( p.type ) );
-            }
+        }
 
-            // The actual function
-            auto llvmFun = llvm::Function::Create(
-                llvm::FunctionType::get( llvmReturnType, llvmParams, false),
-                llvm::Function::ExternalLinkage,
-                name,
-                m_Module
-            );
+        // The actual function
+        auto llvmFun = llvm::Function::Create(
+            llvm::FunctionType::get( llvmReturnType, llvmParams, false),
+            llvm::Function::ExternalLinkage,
+            name,
+            m_Module
+        );
 
-            // Name the arguments
-            size_t i = 0;
-            for ( auto& a : llvmFun->args() )
-            {
-                a.setName( parameters[i].name );
-                ++i;
-            }
+        // Name the arguments
+        size_t i = 0;
+        for ( auto& a : llvmFun->args() )
+        {
+            a.setName( parameters[i].name );
+            ++i;
+        }
 
         return llvmFun;
     }
@@ -528,52 +629,55 @@ namespace compiler
             // TODO validate correct structure
         }
 
-            // Entry and return basic blocks
-            auto entryBB = llvm::BasicBlock::Create(m_Context, "entry", llvmFun);
-            auto returnBB = llvm::BasicBlock::Create(m_Context, "return", llvmFun);
+        // Entry and return basic blocks
+        auto entryBB = llvm::BasicBlock::Create(m_Context, "entry", llvmFun);
+        auto returnBB = llvm::BasicBlock::Create(m_Context, "return", llvmFun);
 
-            m_Builder.SetInsertPoint( entryBB );
+        m_Builder.SetInsertPoint( entryBB );
 
-            // Local variables
-            DeclarationMap locals {};
-            for ( const auto& v : variables )
-            {
-            auto vAddr = m_Builder.CreateAlloca( compile_t(v.type) );
-                locals.add(v.name, vAddr);
-            }
-
-            // Parameters
-            // TODO
-
-            // Return address
-            std::optional<llvm::Value*> returnAddress;
-            if ( retType.has_value() ) {
-            returnAddress = m_Builder.CreateAlloca( llvmFun->getReturnType() );
-            }
-            else {
-                returnAddress = std::nullopt;
-            }
-
-            // Code
-            SubprogramVisitor visitor {
-                { m_Context, m_Builder, m_Module, locals },
-                name,
-                returnBB,
-                returnAddress,
-                std::nullopt // Not starting in a loop
-            };
-            visitor.compile_block( code );
-
-            // Return
-            m_Builder.SetInsertPoint( returnBB );
-            if ( returnAddress.has_value() ){
-            auto retVal = m_Builder.CreateLoad( llvmFun->getReturnType(), returnAddress.value() );
-                m_Builder.CreateRet( retVal );
-            }
-            else {
-                m_Builder.CreateRetVoid();
-            }
+        // Parameters
+        for ( auto& a : llvmFun->args() ) {
+            auto pAddr = m_Builder.CreateAlloca( a.getType() );
+            m_Builder.CreateStore( &a, pAddr );
         }
+
+        // Local variables
+        DeclarationMap locals {};
+        for ( const auto& v : variables )
+        {
+            auto vAddr = m_Builder.CreateAlloca( compile_t(v.type) );
+            locals.add(v.name, vAddr);
+        }
+
+        // Return address
+        std::optional<llvm::Value*> returnAddress;
+        if ( retType.has_value() ) {
+            returnAddress = m_Builder.CreateAlloca( llvmFun->getReturnType() );
+        }
+        else {
+            returnAddress = std::nullopt;
+        }
+
+        // Code
+        SubprogramVisitor visitor {
+            { { m_Context, m_Builder, m_Module }, locals },
+            name,
+            returnBB,
+            returnAddress,
+            std::nullopt // Not starting in a loop
+        };
+        visitor.compile_block( code );
+
+        // Return
+        m_Builder.SetInsertPoint( returnBB );
+        if ( returnAddress.has_value() ){
+            auto retVal = m_Builder.CreateLoad( llvmFun->getReturnType(), returnAddress.value() );
+            m_Builder.CreateRet( retVal );
+        }
+        else {
+            m_Builder.CreateRetVoid();
+        }
+    }
 
 /******************************************************************/
 
@@ -581,7 +685,12 @@ namespace compiler
     {
         std::unique_ptr<Compiler> compiler ( new Compiler{ program.name } );
 
-        ProgramVisitor pr { compiler->m_Context, compiler->m_Builder, compiler->m_Module, {} };
+        ProgramVisitor pr {
+            {
+                {compiler->m_Context, compiler->m_Builder, compiler->m_Module},
+                {}
+            }
+        };
         pr.add_external_funcs();
         pr.compile_program( program );
 

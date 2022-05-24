@@ -41,15 +41,9 @@ namespace compiler
 
     /******************************************************************/
 
-    /**
-     * \defgroup AstVisitors AST visitors and code generator
-     *  @{
-     */
-
-    /// Visitor generating constants, expressions and types
-    struct AstVisitor
+    /// Visitor generating constants, constant expressions and types
+    struct ConstantVisitor
     {
-    public:
         /// LLVM context
         llvm::LLVMContext& m_Context;
 
@@ -59,19 +53,16 @@ namespace compiler
         /// LLVM module
         llvm::Module& m_Module;
 
-        /// Local declarations
-        const DeclarationMap m_Locals;
-
         /// Compile constant
         llvm::ConstantInt* compile_const ( const Constant& variant )
         {
             return std::visit( *this, variant );
         }
 
-        /// Compile expression
-        llvm::Value* compile_expr ( const Expression& variant )
+        /// Compile constant expression
+        llvm::Constant* compile_cexpr ( const Expression& expr )
         {
-            return std::visit( *this, variant );
+            return std::visit( *this, expr );
         }
 
         /// Compile type
@@ -80,11 +71,45 @@ namespace compiler
             return std::visit( *this, variant );
         }
 
-        llvm::Value* local_or_global ( const std::string& name );
-
-        // Constants
+        // TODO groups like this in doc
+        /// @name Constant generators
+        /// @{
         llvm::ConstantInt* operator() ( const BooleanConstant& );
         llvm::ConstantInt* operator() ( const IntegerConstant& );
+        /// @}
+
+        // Constant expressions
+        llvm::Constant* operator() ( const VariableAccess& );
+        llvm::Constant* operator() ( const ConstantExpression& );
+        llvm::Constant* operator() ( const ptr<ArrayAccess>& );
+        llvm::Constant* operator() ( const ptr<SubprogramCall>& );
+        llvm::Constant* operator() ( const ptr<UnaryOperator>& );
+        llvm::Constant* operator() ( const ptr<BinaryOperator>& );
+
+        // Types
+        llvm::Type* operator() ( SimpleType );
+        llvm::Type* operator() ( const ptr<Array>& );
+    };
+
+    /**
+     * \defgroup AstVisitors AST visitors and code generator
+     *  @{
+     */
+
+    /// Visitor generating expressions and holding local variables
+    struct ExprVisitor : public ConstantVisitor
+    {
+    public:
+        /// Local declarations
+        const DeclarationMap m_Locals;
+
+        /// Compile expression
+        llvm::Value* compile_expr ( const Expression& variant )
+        {
+            return std::visit( *this, variant );
+        }
+
+        llvm::Value* local_or_global ( const std::string& name );
 
         // Expressions
         llvm::Value* operator() ( const VariableAccess& );
@@ -93,14 +118,10 @@ namespace compiler
         llvm::Value* operator() ( const ptr<SubprogramCall>& );
         llvm::Value* operator() ( const ptr<UnaryOperator>& );
         llvm::Value* operator() ( const ptr<BinaryOperator>& );
-
-        // Types
-        llvm::Type* operator() ( SimpleType );
-        llvm::Type* operator() ( const ptr<Array>& );
     };
 
     /// Visitor generating statements in function and procedure
-    class SubprogramVisitor : public AstVisitor
+    class SubprogramVisitor : public ExprVisitor
     {
     public:
         /// Current subprogram name
@@ -141,7 +162,7 @@ namespace compiler
     };
 
     /// Visitor generating top level declarations and definitions
-    struct ProgramVisitor : public AstVisitor
+    struct ProgramVisitor : public ExprVisitor
     {
     public:
         /// Compile a global definition
