@@ -217,9 +217,8 @@ namespace compiler
         case UnaryOperator::OPERATOR::PLUS:
             return val;
 
-        // '0 - val'
         case UnaryOperator::OPERATOR::MINUS:
-            return m_Builder.CreateSub( m_Builder.getInt32(0), val );
+            return m_Builder.CreateNeg( val );
 
         case UnaryOperator::OPERATOR::NOT:
             return m_Builder.CreateNot(val);
@@ -554,18 +553,6 @@ namespace compiler
             compile_glob ( g );
         }
 
-        auto * mainFun = llvm::Function::Create(
-            llvm::FunctionType::get(
-                m_Builder.getInt32Ty(),
-                false
-            ),
-            llvm::Function::ExternalLinkage,
-            "main",
-            m_Module
-        );
-
-        auto BB = llvm::BasicBlock::Create(m_Context, "entry", mainFun);
-        m_Builder.SetInsertPoint(BB);
         compile_subprogram("main", {}, {}, SimpleType::INTEGER, program.code);
     }
 
@@ -669,6 +656,7 @@ namespace compiler
         visitor.compile_block( code );
 
         // Return
+        m_Builder.CreateBr( returnBB );
         m_Builder.SetInsertPoint( returnBB );
         if ( returnAddress.has_value() ){
             auto retVal = m_Builder.CreateLoad( llvmFun->getReturnType(), returnAddress.value() );

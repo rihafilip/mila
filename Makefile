@@ -3,6 +3,9 @@ CMAKE_MAKEFILE=build/Makefile
 SRC=$(shell find src -name '*.cpp')
 HEAD=$(shell find src -name '*.h')
 
+SAMPLES=./samples
+TEST_FILE=consts
+
 ## Compile
 .PHONY: all mila cmake
 all: mila
@@ -21,9 +24,12 @@ cmake:
 
 
 ## Run tests
-.PHONY: runtests
+.PHONY: runtests test
 runtests: mila
 	./runtests
+
+test: mila
+	cd $(SAMPLES) && ../mila $(TEST_FILE).mila -o $(TEST_FILE)
 
 ## Misc
 .PHONY: clean doc
