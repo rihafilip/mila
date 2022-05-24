@@ -180,6 +180,19 @@ namespace compiler
         return glob;
     }
 
+    llvm::Value* ExprVisitor::variable_address ( const Expression& expr )
+    {
+        return wrap(expr).visit(
+            [&]( const VariableAccess& va ) -> llvm::Value*{
+                return local_or_global(va.identifier);
+            },
+            []( const auto& ) -> llvm::Value*{
+                throw std::runtime_error(
+                    "Trying to use an address of a non-variable");
+            }
+        );
+    }
+
 /******************************************************************/
 
     llvm::Value* ExprVisitor::operator() ( const VariableAccess& va )
@@ -198,13 +211,23 @@ namespace compiler
         throw std::runtime_error( "TODO" );
     }
 
-    // TODO writeln
     llvm::Value* ExprVisitor::operator() ( const ptr<SubprogramCall>& sub )
     {
         std::vector<llvm::Value*> args {};
         args.reserve(sub->arguments.size());
+
+        // If function expects pointer, get a pointer to a variable instead of
+        // an expression value
+        if ( external::POINTER_FUNS.contains( sub->functionName ))
+        {
+            for ( const auto& p : sub->arguments ){
+                args.push_back( variable_address( p ) );
+            }
+        }
+        else {
         for ( const auto& p : sub->arguments ){
             args.push_back( compile_expr( p ) );
+        }
         }
 
         return m_Builder.CreateCall(m_Module.getFunction(sub->functionName), args, sub->functionName);
@@ -278,16 +301,10 @@ namespace compiler
 
 /******************************************************************/
 
-    // TODO redundant
     void SubprogramVisitor::operator() ( const SubprogramCall& sub )
     {
-        std::vector<llvm::Value*> args;
-
-        for ( const auto& a : sub.arguments ){
-            args.push_back( compile_expr( a ) );
-        }
-
-        m_Builder.CreateCall(m_Module.getFunction(sub.functionName), args, sub.functionName);
+        // Same as expression subprogram call, but the result is thrown away
+        compile_expr( make_ptr<SubprogramCall>(sub) );
     }
 
     void SubprogramVisitor::operator() ( const Assignment& assign )

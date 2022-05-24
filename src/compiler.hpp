@@ -21,6 +21,16 @@ namespace compiler
 {
     using namespace ast;
 
+    namespace external
+    {
+        /// Functions that require pointer as an argument
+        const std::set<std::string> POINTER_FUNS = {
+            "readln", "sub"
+        };
+
+        // TODO external funtions as vector
+    }
+
     /// Simple wrapper around map for holding variables
     class DeclarationMap
     {
@@ -110,6 +120,8 @@ namespace compiler
         }
 
         llvm::Value* local_or_global ( const std::string& name );
+
+        llvm::Value* variable_address ( const Expression& expr );
 
         // Expressions
         llvm::Value* operator() ( const VariableAccess& );
