@@ -17,7 +17,7 @@ constexpr const char * USAGE =
     "\t-h\t\t Print this help\n"
     "\t-l\t\t Print lexer output\n"
     "\t-p\t\t Print parser output\n"
-    "\t-o <OUT_FILE>\t Compile the input to OUT_FILE\n";
+    "\t-o\t\t Compile the input, printing the LLVM IR\n";
 
 void print_lexer( const std::string& in_file )
 {
@@ -47,11 +47,11 @@ void print_parser( const std::string& in_file )
     std::cout << ast::to_string( ast ) << std::endl;
 }
 
-void compile( const std::string& in_file, const std::string& out_file )
+void compile( const std::string& in_file )
 {
-    std::fstream inf ( in_file, std::ios_base::in );
+    std::fstream f ( in_file, std::ios_base::in );
 
-    auto ast = parser::Parser::parse( inf );
+    auto ast = parser::Parser::parse( f );
 
     auto visitor = compiler::Compiler::compile( ast );
     const auto& module = visitor->get_module();
@@ -81,8 +81,8 @@ int main( int argc, char const* argv [] )
         else if ( flag == "-p" ) {
             print_parser(argv[1]);
         }
-        else if ( flag == "-o" && argc == 4 ) {
-            compile( argv[1], argv[3] );
+        else if ( flag == "-o" ) {
+            compile( argv[1] );
         }
         else {
             std::cerr << USAGE << std::endl;
