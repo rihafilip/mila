@@ -235,7 +235,7 @@ namespace parser
             }
             else if ( lookup_eq( KEYWORD::PROCEDURE ) )
             {
-                wrap(function()).visit(
+                wrap(procedure()).visit(
                     [&globals]( const auto& p ){
                         globals.push_back(p);
                     }
