@@ -3,6 +3,10 @@
 #include "tokens.hpp"
 #include "variant_helpers.hpp"
 #include <cctype>
+#include <fstream>
+#include <functional>
+#include <ios>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
 
@@ -11,38 +15,100 @@ using namespace token;
 
 namespace lexer
 {
-    /// Bool wrapper struct that signifies if this is a start state
-    template <typename St>
-    struct is_start_state {
-        constexpr static bool value = false;
-    };
+    /**
+     * @brief Apply a given function with a transition table to the given state
+     *
+     * @param state State to be visited
+     * @param apply Function to apply
+     * @return auto Return of the given apply function
+     */
+    inline auto on_all ( const State& state, const auto& apply )
+    {
+        return wrap( state ).visit(
+            std::bind_front(apply, S_TABLE),
+            std::bind_front(apply, DECIMAL_TABLE),
+            std::bind_front(apply, OCTAL_START_TABLE),
+            std::bind_front(apply, OCTAL_TABLE),
+            std::bind_front(apply, HEX_START_TABLE),
+            std::bind_front(apply, HEX_TABLE),
+            std::bind_front(apply, WORD_TABLE),
+            std::bind_front(apply, GREATER_THAN_TABLE),
+            std::bind_front(apply, LOWER_THAN_TABLE),
+            std::bind_front(apply, COLON_TABLE),
+            std::bind_front(apply, DOT_TABLE)
+        );
+    }
 
-    /// Specialisation of is_start_state for the start symbol
-    template <>
-    struct is_start_state<S> {
-        constexpr static bool value = true;
-    };
+    /// On all states apply a transition function from their state
+    inline std::pair<TransitionReturn, bool> transition_all ( const State& state, char ch, Position pos )
+    {
+        return on_all( state,
+            [&ch, &pos] <typename St> ( const Table<St>& table, const St& state ) -> std::pair<TransitionReturn, bool>
+            {
+                // Transition succesful
+                if ( auto i = table.m_Map.find( ch ); i != table.m_Map.end() ){
+                    return {i->second( state, ch ), true};
+                }
 
-    /***********************************************/
+                // Extraction succesful
+                else if ( auto tok = table.m_ExtractToken( state ); tok.has_value() ) {
+                    return {tok.value(), false};
+                }
 
-    /// Get a state, its transition table and a character and make a transition
-    template <typename St>
-    std::optional<token::Token> transition ( const Table<St>& table, Position& pos, std::istream& stream, const St& state )
+                // Error
+                else {
+                    throw std::runtime_error(
+                        std::string {"Unexpected character "}
+                        + ch
+                        + " (line "
+                        + std::to_string( pos.line )
+                        + ", column "
+                        + std::to_string( pos.column )
+                        + ")"
+                    );
+                }
+            }
+        );
+    }
+
+    /// On all states, try to extract a token
+    inline std::optional<token::Token> extract_all ( const State& state )
+    {
+        return on_all( state,
+            [] <typename St> ( const Table<St>& table, const St& state)
+            {
+                return table.m_ExtractToken( state );
+            }
+        );
+    }
+
+    /**
+     * @brief The actual driver making the transitions of the state machine
+     *
+     * @param current_state The actuall state
+     * @param pos Current position in stream
+     * @param stream Stream to pull characters from
+     * @return std::optional<token::Token> Token on succesful lexing, nullopt on EOF
+     */
+    std::optional<token::Token> lexer_driver ( const State& current_state, Position& pos, std::istream& stream )
     {
         // Bad stream
-        if ( stream.fail() ){
-            throw std::runtime_error( "Error while reading input." );
+        if ( stream.bad() ) {
+            throw std::runtime_error(
+                "Error while reading input at line "
+                + std::to_string(pos.line)
+                + ", column "
+                + std::to_string(pos.column)
+            );
         }
 
-        // Handle EOF
-        if ( stream.eof() || std::isspace( stream.peek() ) ){
+        if ( stream.eof() ){
             // On start state just return nothing
-            if ( is_start_state<St>::value ){
+            if ( wrap(current_state).get<S>().has_value() ){
                 return std::nullopt;
             }
 
-            // Try to extract a token from state, fail if there is none
-            auto tk = table.m_ExtractToken( state );
+            auto tk = extract_all( current_state );
             if ( tk.has_value() ){
                 return tk.value();
             }
@@ -51,68 +117,47 @@ namespace lexer
             }
         }
 
-        // Get next char
-        char ch = stream.peek();
+        // Handle EOF
+        if ( std::isspace( stream.peek() ) ){
 
-        // Try to find in map
-        if ( auto i = table.m_Map.find( ch ); i != table.m_Map.end() ){
+            // On start state just return nothing
+            if ( wrap(current_state).get<S>().has_value() ){
+                return std::nullopt;
+            }
+
+            auto tk = extract_all( current_state );
+            if ( tk.has_value() ){
+                return tk.value();
+            }
+            else {
+                throw std::runtime_error( "Unexpected ws." );
+            }
+        }
+
+        // Try to transition
+        char ch = stream.peek();
+        auto [ret, consumed] = transition_all( current_state, ch, pos );
+
+        if ( consumed )
+        {
             stream.get();
             pos.column++;
-            auto token_or_state = i->second( state, ch );
-
-            // Transition more on state, return token on token
-            return wrap(token_or_state).visit(
-                []( const Token& tk ) -> std::optional<token::Token>
-                {
-                    return tk;
-                },
-                [&stream, &pos] ( const State& new_state )
-                {
-                    return transition_all( new_state, pos, stream );
-                }
-            );
         }
 
-        // Try to extract token on character that's not in table
-        else if ( auto tok = table.m_ExtractToken( state ); tok.has_value() ) {
-            return tok.value();
-        }
-
-        // Error
-        else {
-            throw std::runtime_error(
-                std::string {"Unexpected character "}
-                + ch
-                + " (line "
-                + std::to_string( pos.line )
-                + ", column "
-                + std::to_string( pos.column )
-                + ")" );
-        }
-    }
-
-    std::optional<token::Token> transition_all ( const State& state, Position& pos, std::istream& stream )
-    {
-        auto lam = [&stream, &pos] <typename St> ( const Table<St>& table ){
-            return [&stream, &pos, &table] ( const St& state ){
-                return transition( table, pos, stream, state );
-            };
-        };
-
-        return wrap( state ).visit(
-            lam(S_TABLE),
-            lam(DECIMAL_TABLE),
-            lam(OCTAL_START_TABLE),
-            lam(OCTAL_TABLE),
-            lam(HEX_START_TABLE),
-            lam(HEX_TABLE),
-            lam(WORD_TABLE),
-            lam(GREATER_THAN_TABLE),
-            lam(LOWER_THAN_TABLE),
-            lam(COLON_TABLE),
-            lam(DOT_TABLE)
+        // On token return
+        // On state transition continue
+        return wrap( ret ).visit(
+            [] ( const Token& tok ) -> std::optional<token::Token>
+            {
+                return tok;
+            },
+            [&]( const State& st ) -> std::optional<token::Token>
+            {
+                return lexer_driver( st, pos, stream);
+            }
         );
     }
+
 
     /***********************************************/
 
@@ -130,12 +175,11 @@ namespace lexer
             }
         }
 
-        return transition_all(start_state(), m_Position, m_Data);
+        return lexer_driver(start_state(), m_Position, m_Data);
     }
 
     Position Lexer::position() const
     {
         return m_Position;
     }
-
 }

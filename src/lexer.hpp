@@ -14,15 +14,6 @@ namespace lexer
         size_t column, line;
     };
 
-    /**
-     * @brief Get a character from stream and transition with it on the given state
-     *
-     * @param state State to transition from
-     * @param stream Stream to get characters from
-     * @return std::optional<token::Token> Token or nothing on EOF
-     */
-    std::optional<token::Token> transition_all ( const State& state, Position& pos, std::istream& stream );
-
     class Lexer
     {
     private:
