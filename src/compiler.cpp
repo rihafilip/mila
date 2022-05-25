@@ -649,9 +649,7 @@ namespace compiler
         // Code
         SubprogramVisitor visitor {
             { { m_Context, m_Builder, m_Module }, locals },
-            name,
             returnBB,
-            returnAddress,
             std::nullopt // Not starting in a loop
         };
         visitor.compile_block( code );

@@ -143,14 +143,8 @@ namespace compiler
     class SubprogramVisitor : public ExprVisitor
     {
     public:
-        /// Current subprogram name
-        const std::string m_Name;
-
         /// Last block in the subprogram
         llvm::BasicBlock* m_ReturnBlock;
-
-        /// In function address of return value, in procedure nullopt
-        std::optional<llvm::Value*> m_ReturnAddress;
 
         /// In loop the basic block that continues the looping, otherwise nullopt
         std::optional<llvm::BasicBlock*> m_LoopContinuation;
