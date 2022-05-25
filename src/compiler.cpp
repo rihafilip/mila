@@ -301,6 +301,19 @@ namespace compiler
 
 /******************************************************************/
 
+    llvm::BasicBlock* SubprogramVisitor::get_basic_block ( const std::string& name )
+    {
+        return llvm::BasicBlock::Create(
+            m_Context,
+            name,
+            m_Builder.GetInsertBlock()->getParent(),
+            m_ReturnBlock
+        );
+    }
+
+/******************************************************************/
+
+
     void SubprogramVisitor::operator() ( const SubprogramCall& sub )
     {
         // Same as expression subprogram call, but the result is thrown away
@@ -323,7 +336,7 @@ namespace compiler
     {
         m_Builder.CreateBr( m_ReturnBlock );
 
-        auto bb = llvm::BasicBlock::Create(m_Context, "afterExit", m_Builder.GetInsertBlock()->getParent());
+        auto bb = get_basic_block( "afterExit" );
         m_Builder.SetInsertPoint(bb);
     }
 
@@ -336,7 +349,7 @@ namespace compiler
 
         m_Builder.CreateBr( m_LoopContinuation.value() );
 
-        auto bb = llvm::BasicBlock::Create(m_Context, "afterBreak", m_Builder.GetInsertBlock()->getParent());
+        auto bb = get_basic_block("afterBreak");
         m_Builder.SetInsertPoint(bb);
     }
 
@@ -352,11 +365,9 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ptr<If>& if_ )
     {
-        auto parent = m_Builder.GetInsertBlock()->getParent();
-
-        auto trueBB = llvm::BasicBlock::Create(m_Context, "trueBranch", parent);
-        auto falseBB = llvm::BasicBlock::Create(m_Context, "falseBranch", parent);
-        auto continueBB = llvm::BasicBlock::Create( m_Context, "afterIf", parent );
+        auto trueBB = get_basic_block("trueBranch");
+        auto falseBB = get_basic_block("falseBranch");
+        auto continueBB = get_basic_block( "afterIf");
 
         // conditional jump
         auto cond = compile_expr(if_->condition);
@@ -423,11 +434,9 @@ namespace compiler
 
     void SubprogramVisitor::compile_loop ( Expression condition, Statement block )
     {
-        auto parent = m_Builder.GetInsertBlock()->getParent();
-
-        auto condBB = llvm::BasicBlock::Create(m_Context, "loopCond", parent);
-        auto bodyBB = llvm::BasicBlock::Create(m_Context, "loopBody", parent);
-        auto continueBB = llvm::BasicBlock::Create(m_Context, "afterLoop", parent);
+        auto condBB = get_basic_block("loopCond");
+        auto bodyBB = get_basic_block("loopBody");
+        auto continueBB = get_basic_block("afterLoop");
 
         m_Builder.CreateBr(condBB);
 

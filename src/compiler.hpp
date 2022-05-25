@@ -155,6 +155,8 @@ namespace compiler
             return std::visit( *this, variant );
         }
 
+        llvm::BasicBlock* get_basic_block ( const std::string& name );
+
         // Statements
         void operator() ( const SubprogramCall& );
         void operator() ( const Assignment& );
