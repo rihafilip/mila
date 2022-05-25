@@ -173,7 +173,7 @@ namespace compiler
         void compile_block ( const Block& code );
 
         /// Helper function to handle compiling of 'while' and 'for' loops
-        void compile_loop ( Expression condition, Statement block );
+        void compile_loop ( Expression condition, Statement block, Statement increment );
     };
 
     /// Visitor generating top level declarations and definitions

@@ -392,35 +392,50 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ptr<While>& wh )
     {
-        compile_loop(wh->condition, wh->code);
+        compile_loop(wh->condition, wh->code, EmptyStatement{});
     }
 
     void SubprogramVisitor::operator() ( const ptr<For>& fo )
     {
         // initialization
-        // `for iterator ...`
+        // `for iterator := init
         auto iterator = local_or_global( fo->loopVariable );
         auto init = compile_expr( fo->initialization );
         m_Builder.CreateStore( init, iterator );
 
         // Transform a for loop to while loop
-        // to     => while ( x <= target )
-        // downto =>         x >=
-        ast::Expression loopVar = ast::VariableAccess { fo->loopVariable };
-        ast::Expression cond;
+        BinaryOperator::OPERATOR condOp;
+        BinaryOperator::OPERATOR incrOp;
         switch (fo->direction) {
         case For::DIRECTION::TO:
-            cond = make_ptr<BinaryOperator>(
-                BinaryOperator::OPERATOR::LESS_EQ, loopVar, fo->target );
+            condOp = BinaryOperator::OPERATOR::LESS_EQ;
+            incrOp = BinaryOperator::OPERATOR::PLUS;
             break;
 
         case For::DIRECTION::DOWNTO:
-            cond = make_ptr<BinaryOperator>(
-                BinaryOperator::OPERATOR::MORE_EQ, loopVar, fo->target );
+            condOp = BinaryOperator::OPERATOR::MORE_EQ;
+            incrOp = BinaryOperator::OPERATOR::MINUS;
             break;
         }
 
-        compile_loop(cond, fo->code);
+        ast::Expression loopVar = ast::VariableAccess { fo->loopVariable };
+
+        // i <= target or i >= targer
+        ast::Expression cond =
+            make_ptr<BinaryOperator>(condOp, loopVar, fo->target );
+
+        // i = i + 1 or i = i - 1
+        ast::Statement incr = Assignment{
+                fo->loopVariable,
+                make_ptr<BinaryOperator>(
+                    incrOp,
+                    loopVar,
+                    ConstantExpression{ IntegerConstant{ 1 } }
+                )
+            };
+
+
+        compile_loop(cond, fo->code, incr);
     }
 
 /******************************************************************/
@@ -432,7 +447,7 @@ namespace compiler
         }
     }
 
-    void SubprogramVisitor::compile_loop ( Expression condition, Statement block )
+    void SubprogramVisitor::compile_loop ( Expression condition, Statement block, Statement increment )
     {
         auto condBB = get_basic_block("loopCond");
         auto bodyBB = get_basic_block("loopBody");
@@ -452,6 +467,7 @@ namespace compiler
         // compile body
         m_Builder.SetInsertPoint( bodyBB );
         compile_stm( block );
+        compile_stm( increment );
         m_Builder.CreateBr( condBB );
 
         // switch to continuation
