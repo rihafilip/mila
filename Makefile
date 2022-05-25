@@ -4,7 +4,7 @@ SRC=$(shell find src -name '*.cpp')
 HEAD=$(shell find src -name '*.h')
 
 SAMPLES=./samples
-TEST_FILE=consts
+TEST ?= expressions2
 
 ## Compile
 .PHONY: all mila cmake
@@ -29,12 +29,13 @@ runtests: mila
 	./runtests
 
 test: mila
-	cd $(SAMPLES) && ../mila $(TEST_FILE).mila -o $(TEST_FILE)
+	cd $(SAMPLES) && ../mila $(TEST).mila -o $(TEST)
 
 ## Misc
 .PHONY: clean doc
 clean:
 	rm -frd build/ doc/
+	cd $(SAMPLES) && ls | grep -v '.*\.mila' | xargs rm
 
 doc: $(SRC) $(HEAD) Doxyfile
 	doxygen
