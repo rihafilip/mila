@@ -25,18 +25,10 @@ void print_lexer( const std::string& in_file )
 
     lexer::Lexer lex { f };
 
-    while ( true )
-    {
-        auto t = lex.next();
-        if ( t.has_value() )
+    for ( auto t = lex.next(); t.has_value(); t = lex.next() )
         {
             std::cout << token::to_string(t.value()) << '\n';
         }
-        else
-        {
-            break;
-        }
-    }
 }
 
 void print_parser( const std::string& in_file )
