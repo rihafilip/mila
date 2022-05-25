@@ -9,27 +9,6 @@
 
 namespace compiler
 {
-    std::optional<llvm::Value*> DeclarationMap::find ( const std::string& ident ) const
-    {
-        auto i = m_Data.find( ident );
-        if ( i != m_Data.end() ){
-            return i->second;
-        }
-
-        return std::nullopt;
-    }
-
-    void DeclarationMap::add ( const std::string& ident, llvm::Value* val )
-    {
-        auto i = m_Data.find( ident );
-        if ( i != m_Data.end() ){
-            throw std::runtime_error( "Redefinition of " + ident );
-        }
-
-        m_Data.insert({ ident, val });
-    }
-/******************************************************************/
-
     llvm::Constant* ConstantVisitor::operator() ( const VariableAccess& name )
     {
         auto glob = m_Module.getNamedGlobal(name.identifier);

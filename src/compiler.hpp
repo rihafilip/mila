@@ -38,29 +38,12 @@ namespace compiler
         };
     }
 
-    /// Simple wrapper around map for holding variables
-    class DeclarationMap
-    {
-    private:
-        std::map<std::string, llvm::Value*> m_Data;
-
-    public:
-        DeclarationMap()
-        : m_Data{}
-        {}
-
-        /// Try to find a value to an identifier in the map
-        std::optional<llvm::Value*> find ( const std::string& ident ) const;
-
-        /// Add an identifier and it's value to the map, throwing if it is a redefinition
-        void add ( const std::string& ident, llvm::Value* val );
-    };
-
     /******************************************************************/
 
     ///\defgroup AstVisitors AST visitors and code generator
     /// @{
 
+    using DeclarationMap = cont::UniqueMap<std::string, llvm::Value*>;
     /// Visitor generating constants, constant expressions and types
     struct ConstantVisitor
     {
