@@ -1,0 +1,25 @@
+program nestedLoop;
+
+var
+    i : integer;
+    j : integer;
+    iMax : integer;
+    jMax : integer;
+begin
+    readln(iMax);
+    readln(jMax);
+    for i := 0 to iMax do
+    begin
+        for j := i to jMax do
+        begin
+            if i > j then
+                break
+            else
+            begin
+                writeln( i );
+                writeln( j );
+                writeln ( -1 );
+            end
+        end;
+    end;
+end.

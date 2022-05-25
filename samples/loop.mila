@@ -1,0 +1,23 @@
+program loop;
+
+var
+    i : integer;
+
+const
+    TOP = 5;
+    BOT = 0;
+
+begin
+    for i := BOT to TOP do
+        writeln( i );
+
+    for i := TOP downto BOT do
+        writeln( i );
+
+    i := BOT;
+
+    while i < TOP do begin
+        writeln( i );
+        i := i + 1;
+    end
+end.
