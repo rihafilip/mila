@@ -15,6 +15,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
 #include <optional>
+#include <set>
 #include <variant>
 
 namespace compiler
@@ -25,10 +26,16 @@ namespace compiler
     {
         /// Functions that require pointer as an argument
         const std::set<std::string> POINTER_FUNS = {
-            "readln", "sub"
+            "readln", "dec"
         };
 
-        // TODO external funtions as vector
+        const std::vector<std::variant<ast::ProcedureDecl, ast::FunctionDecl>> EXTERNAL_FUNCS=
+        {
+            FunctionDecl { "writeln", { {"x", ast::SimpleType::INTEGER}}, ast::SimpleType::INTEGER },
+            FunctionDecl { "write",   { {"x", ast::SimpleType::INTEGER}}, ast::SimpleType::INTEGER },
+            FunctionDecl { "readln",  { {"x", ast::SimpleType::INTEGER}}, ast::SimpleType::INTEGER },
+            ProcedureDecl{ "dec", { {"x", ast::SimpleType::INTEGER}}}
+        };
     }
 
     /// Simple wrapper around map for holding variables
@@ -201,7 +208,8 @@ namespace compiler
         llvm::Function* compile_subprogram_decl (
             const Identifier& name,
             const Many<Variable>& parameters,
-            const std::optional<Type>& retType
+            const std::optional<Type>& retType,
+            bool ptrParams = false
         );
 
         /// Compile a subprogram

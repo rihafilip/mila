@@ -516,36 +516,25 @@ namespace compiler
 
     void ProgramVisitor::add_external_funcs()
     {
-        std::vector<llvm::Type*> int_arg (1, m_Builder.getInt32Ty());
-        llvm::FunctionType * fun_type = llvm::FunctionType::get(m_Builder.getInt32Ty(), int_arg , false);
-
-        // create writeln function
-        {
-            llvm::Function * fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, "writeln", m_Module);
-            for (auto & a : fun->args())
-            {
-                a.setName("x");
-            }
-        }
-
-        // create write function
-        {
-            llvm::Function * fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, "write", m_Module);
-            for (auto & a : fun->args())
-            {
-                a.setName("x");
-            }
-        }
-
-        // create readln
-        {
-            std::vector<llvm::Type*> read_arg (1, m_Builder.getInt32Ty()->getPointerTo());
-            llvm::FunctionType * read_type = llvm::FunctionType::get(m_Builder.getInt32Ty(), read_arg, false);
-            llvm::Function * fun = llvm::Function::Create( read_type, llvm::Function::ExternalLinkage, "readln", m_Module );
-            for (auto & a : fun->args())
-            {
-                a.setName("x");
-            }
+        for ( const auto& f : external::EXTERNAL_FUNCS ){
+            wrap(f).visit(
+                [&]( const ProcedureDecl& decl ){
+                    compile_subprogram_decl(
+                        decl.name,
+                        decl.parameters,
+                        std::nullopt,
+                        external::POINTER_FUNS.contains(decl.name)
+                    );
+                },
+                [&] ( const FunctionDecl& decl ){
+                    compile_subprogram_decl(
+                        decl.name,
+                        decl.parameters,
+                        decl.returnType,
+                        external::POINTER_FUNS.contains(decl.name)
+                    );
+                }
+            );
         }
     }
 
@@ -564,7 +553,8 @@ namespace compiler
     llvm::Function* ProgramVisitor::compile_subprogram_decl(
         const Identifier& name,
         const Many<Variable>& parameters,
-        const std::optional<Type>& retType)
+        const std::optional<Type>& retType,
+        bool ptrParams)
     {
         // Return type
         llvm::Type * llvmReturnType;
@@ -580,7 +570,11 @@ namespace compiler
         llvmParams.reserve( parameters.size() );
         for ( const auto& p : parameters )
         {
-            llvmParams.push_back( compile_t( p.type ) );
+            auto t = compile_t( p.type );
+            if ( ptrParams ){
+                t = t->getPointerTo();
+            }
+            llvmParams.push_back( t );
         }
 
         // The actual function
