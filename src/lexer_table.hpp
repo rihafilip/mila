@@ -11,10 +11,11 @@ namespace lexer
     using namespace token;
 
     /***********************************************/
-    /**
-    * \defgroup LexSt States definition
-    * @{
-    */
+    /// \defgroup LexTable Lexer table definitons
+    /// @{
+
+    /// \defgroup LexTableSt Lexer table states
+    /// @{
 
     /// Integer helper superclass
     template<int base, typename Subclass>
@@ -55,10 +56,14 @@ namespace lexer
     {
         return S{};
     }
-
     /// @}
 
+
     /***********************************************/
+
+    /// \defgroup LexTableTable Table definiton
+    /// @{
+
     /// Return on state transition -> new state or outputed token
     using TransitionReturn = std::variant<Token, State>;
 
@@ -70,6 +75,7 @@ namespace lexer
     template <typename St>
     using ExtractToken = std::function<std::optional<Token>(St)>;
 
+
     /// Single table definition
     template <typename St>
     struct Table
@@ -77,8 +83,13 @@ namespace lexer
         std::map<char, Transition<St>> m_Map {};
         ExtractToken<St> m_ExtractToken;
     };
+    /// @}
+
 
     /***********************************************/
+
+    /// @name Table transition helper functions
+    /// @{
 
     /// Return a new state on transition
     template <typename OutSt, typename InSt>
@@ -112,6 +123,8 @@ namespace lexer
     Token extract_integer ( const St& i ){
         return token::Integer { i.value };
     }
+
+    ///@}
 
     /***********************************************/
 
@@ -317,6 +330,7 @@ namespace lexer
         return CONTROL_SYMBOL::DOT;
     });
 
+    /// @}
     /// @}
 }
 

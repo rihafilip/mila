@@ -8,12 +8,16 @@
 
 namespace lexer
 {
+    /// \defgroup Lex Lexer
+    /// @{
+
     /// Simple struct saying where in file we are
     struct Position
     {
         size_t column, line;
     };
 
+    /// Lexer on given input stream
     class Lexer
     {
     private:
@@ -33,7 +37,7 @@ namespace lexer
         /// Return current line and column number number
         Position position() const;
     };
-
+    /// @}
 }
 
 #endif // LEXER_HPP

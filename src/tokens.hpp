@@ -9,6 +9,9 @@
 
 namespace token
 {
+    /// \defgroup Token Tokens
+    /// @{
+
     /// Operator tokens
     enum class OPERATOR
     {
@@ -131,6 +134,8 @@ namespace token
 
     /// Return a pretty string representation of token
     std::string to_string( const Token& tk );
+
+    /// @}
 }
 
 

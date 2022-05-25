@@ -12,8 +12,13 @@
 
 namespace parser
 {
+    /// \defgroup Parser Parser
+    /// @{
+
+    /// Simple alias for StackWrapper for Parser
     using LexStack = cont::StackWrapper<token::Token, lexer::Lexer>;
 
+    /// StackWrapper adaptor for extracting tokens out of lexer
     std::optional<token::Token> stack_wrap_adaptor ( lexer::Lexer& lex );
 
     /// Alias for Token inside VariantWrapper
@@ -144,6 +149,8 @@ namespace parser
 
         Type type();
     };
+
+    /// @}
 }
 
 #endif // PARSER_HPP

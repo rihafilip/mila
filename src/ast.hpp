@@ -9,7 +9,11 @@
 
 namespace ast
 {
-    // Simple aliases
+    /// \defgroup AST Abstract syntax tree representation
+    /// @{
+
+    /// @name Simple aliases
+    /// @{
     using Identifier = std::string;
 
     template <typename T>
@@ -23,14 +27,10 @@ namespace ast
     {
         return std::shared_ptr<T>( new T { args... } );
     }
+    ///@}
 
-    /***********************************/
-    // Constants
-
-    /**
-     * \defgroup AST Abstract syntax tree representation
-     * @{
-     */
+    /// \defgroup Const Constants
+    /// @{
     struct BooleanConstant
     {
         bool value;
@@ -42,9 +42,11 @@ namespace ast
     };
 
     using Constant = std::variant<BooleanConstant, IntegerConstant>;
+    /// @}
 
     /***********************************/
-    // Expressions
+    /// \defgroup Expr Expressions
+    /// @{
 
     struct VariableAccess
     {
@@ -105,9 +107,11 @@ namespace ast
         Expression left;
         Expression right;
     };
+    /// @}
 
     /***********************************/
-    // Statements
+    /// \defgroup Stmt Statements
+    /// @{
 
     struct Assignment
     {
@@ -174,9 +178,12 @@ namespace ast
         Expression target;
         Statement code;
     };
+    ///@}
 
     /***********************************/
-    // Types
+    /// \defgroup Types Types
+    /// @{
+
     enum class SimpleType
     {
         INTEGER, BOOLEAN
@@ -192,9 +199,11 @@ namespace ast
         Expression highBound;
         Type elementType;
     };
+    ///@}
 
     /***********************************/
-    // Variables
+    /// \defgroup Vars Variables
+    /// @{
 
     struct Variable
     {
@@ -207,9 +216,11 @@ namespace ast
         Identifier name;
         Expression value;
     };
+    ///@}
 
     /***********************************/
-    // Subprograms
+    /// \defgroup Subprograms Subprograms
+    /// @{
 
     struct ProcedureDecl
     {
@@ -242,9 +253,11 @@ namespace ast
         Many<Variable> variables;
         Block code;
     };
+    /// @}
 
     /***********************************/
-    // Program
+    /// \defgroup Prog Program
+    /// @{
 
     using Global =
         std::variant<
@@ -259,9 +272,10 @@ namespace ast
         Block code;
     };
     /// @}
+    /// @}
 
     /**
-     * @brief \defgroup PPAst Ast pretty printing functions
+     * @brief \defgroup PPAst AST pretty printing functions
      * @{
      */
     std::string to_string ( const Type& type,               size_t level );

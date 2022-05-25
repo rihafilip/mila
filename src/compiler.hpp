@@ -24,7 +24,7 @@ namespace compiler
 
     namespace external
     {
-        /// Functions that require pointer as an argument
+        /// Functions that require pointers in arguments
         const std::set<std::string> POINTER_FUNS = {
             "readln", "dec"
         };
@@ -58,6 +58,9 @@ namespace compiler
 
     /******************************************************************/
 
+    ///\defgroup AstVisitors AST visitors and code generator
+    /// @{
+
     /// Visitor generating constants, constant expressions and types
     struct ConstantVisitor
     {
@@ -88,30 +91,28 @@ namespace compiler
             return std::visit( *this, variant );
         }
 
-        // TODO groups like this in doc
         /// @name Constant generators
         /// @{
         llvm::ConstantInt* operator() ( const BooleanConstant& );
         llvm::ConstantInt* operator() ( const IntegerConstant& );
         /// @}
 
-        // Constant expressions
+        /// @name Constant expressions generators
+        /// @{
         llvm::Constant* operator() ( const VariableAccess& );
         llvm::Constant* operator() ( const ConstantExpression& );
         llvm::Constant* operator() ( const ptr<ArrayAccess>& );
         llvm::Constant* operator() ( const ptr<SubprogramCall>& );
         llvm::Constant* operator() ( const ptr<UnaryOperator>& );
         llvm::Constant* operator() ( const ptr<BinaryOperator>& );
+        /// @}
 
-        // Types
+        /// @name Types generators
+        /// @{
         llvm::Type* operator() ( SimpleType );
         llvm::Type* operator() ( const ptr<Array>& );
+        ///@}
     };
-
-    /**
-     * \defgroup AstVisitors AST visitors and code generator
-     *  @{
-     */
 
     /// Visitor generating expressions and holding local variables
     struct ExprVisitor : public ConstantVisitor
@@ -126,17 +127,21 @@ namespace compiler
             return std::visit( *this, variant );
         }
 
+        /// Return a value of local or global variable or constant
         llvm::Value* local_or_global ( const std::string& name );
 
+        /// Return an address of local or global variable
         llvm::Value* variable_address ( const Expression& expr );
 
-        // Expressions
+        /// @name Expression generators
+        /// @{
         llvm::Value* operator() ( const VariableAccess& );
         llvm::Value* operator() ( const ConstantExpression& );
         llvm::Value* operator() ( const ptr<ArrayAccess>& );
         llvm::Value* operator() ( const ptr<SubprogramCall>& );
         llvm::Value* operator() ( const ptr<UnaryOperator>& );
         llvm::Value* operator() ( const ptr<BinaryOperator>& );
+        ///@}
     };
 
     /// Visitor generating statements in function and procedure
@@ -155,9 +160,16 @@ namespace compiler
             return std::visit( *this, variant );
         }
 
+        /**
+         * @brief Return a named basic block
+         *
+         * It is automatically inserted into the current parent from m_Builder
+         * and before the m_ReturnBlock
+         */
         llvm::BasicBlock* get_basic_block ( const std::string& name );
 
-        // Statements
+        /// @name Statement generators
+        /// @{
         void operator() ( const SubprogramCall& );
         void operator() ( const Assignment& );
         void operator() ( const ArrayAssignment& );
@@ -168,6 +180,7 @@ namespace compiler
         void operator() ( const ptr<If>& );
         void operator() ( const ptr<While>& );
         void operator() ( const ptr<For>& );
+        /// @}
 
         /// Compile the subprogram code
         void compile_block ( const Block& code );
@@ -186,13 +199,15 @@ namespace compiler
             return std::visit( *this, variant );
         }
 
-        // Globals
+        /// @name Global definitons and declarations generator
+        /// @{
         void operator() ( const ProcedureDecl& );
         void operator() ( const Procedure& );
         void operator() ( const FunctionDecl& );
         void operator() ( const Function& );
         void operator() ( const NamedConstant& );
         void operator() ( const Variable& );
+        /// @}
 
         /// Add a linkage to external functions (writeln, write, readln)
         void add_external_funcs();
