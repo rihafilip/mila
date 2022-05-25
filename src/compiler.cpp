@@ -22,11 +22,11 @@ namespace compiler
     void DeclarationMap::add ( const std::string& ident, llvm::Value* val )
     {
         auto i = m_Data.find( ident );
-        if ( i == m_Data.end() ){
-            m_Data.insert({ ident, val });
+        if ( i != m_Data.end() ){
+            throw std::runtime_error( "Redefinition of " + ident );
         }
 
-        throw std::runtime_error( "Redefinition of " + ident );
+        m_Data.insert({ ident, val });
     }
 /******************************************************************/
 
@@ -225,12 +225,12 @@ namespace compiler
             }
         }
         else {
-        for ( const auto& p : sub->arguments ){
-            args.push_back( compile_expr( p ) );
-        }
+            for ( const auto& p : sub->arguments ){
+                args.push_back( compile_expr( p ) );
+            }
         }
 
-        return m_Builder.CreateCall(m_Module.getFunction(sub->functionName), args, sub->functionName);
+        return m_Builder.CreateCall(m_Module.getFunction(sub->functionName), args);
     }
 
     llvm::Value* ExprVisitor::operator() ( const ptr<UnaryOperator>& un )
@@ -310,17 +310,8 @@ namespace compiler
     void SubprogramVisitor::operator() ( const Assignment& assign )
     {
         auto val = compile_expr( assign.value );
-
-        // 'function_name := val' => assign return value
-        if ( m_ReturnAddress.has_value() && m_Name == assign.variable )
-        {
-            m_Builder.CreateStore(val, m_ReturnAddress.value());
-        }
-        else
-        {
-            auto ptr = local_or_global( assign.variable );
-            m_Builder.CreateStore(val, ptr);
-        }
+        auto ptr = local_or_global( assign.variable );
+        m_Builder.CreateStore(val, ptr);
     }
 
     void SubprogramVisitor::operator() ( const ArrayAssignment& )
@@ -330,11 +321,6 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ExitStatement& )
     {
-        if ( m_ReturnAddress.has_value() )
-        {
-            throw std::runtime_error( "Exit used outside of procedure" );
-        }
-
         m_Builder.CreateBr( m_ReturnBlock );
 
         auto bb = llvm::BasicBlock::Create(m_Context, "afterExit", m_Builder.GetInsertBlock()->getParent());
@@ -639,24 +625,28 @@ namespace compiler
 
         m_Builder.SetInsertPoint( entryBB );
 
+        // Map of local variables, including parameters and return value
+        DeclarationMap locals {};
+
         // Parameters
         for ( auto& a : llvmFun->args() ) {
-            auto pAddr = m_Builder.CreateAlloca( a.getType() );
+            auto pAddr = m_Builder.CreateAlloca( a.getType(), nullptr, a.getName() + "_arg" );
             m_Builder.CreateStore( &a, pAddr );
+            locals.add( a.getName().data(), pAddr );
         }
 
         // Local variables
-        DeclarationMap locals {};
         for ( const auto& v : variables )
         {
-            auto vAddr = m_Builder.CreateAlloca( compile_t(v.type) );
+            auto vAddr = m_Builder.CreateAlloca( compile_t(v.type), nullptr, v.name + "_var");
             locals.add(v.name, vAddr);
         }
 
         // Return address
         std::optional<llvm::Value*> returnAddress;
         if ( retType.has_value() ) {
-            returnAddress = m_Builder.CreateAlloca( llvmFun->getReturnType() );
+            returnAddress = m_Builder.CreateAlloca( llvmFun->getReturnType(), nullptr, "return_addr" );
+            locals.add(name, returnAddress.value());
         }
         else {
             returnAddress = std::nullopt;
