@@ -16,6 +16,7 @@ namespace compiler
             throw std::runtime_error( "Usage of undeclared " + name.identifier );
         }
 
+        // Use only constants in ConstantVisitor
         if ( ! glob->isConstant() ){
             throw std::runtime_error( "Usage of variable "
                 + name.identifier
@@ -23,7 +24,7 @@ namespace compiler
             );
         }
 
-        return glob;
+        return glob->getInitializer();
     }
 
     llvm::Constant* ConstantVisitor::operator() ( const ConstantExpression& c)
@@ -174,11 +175,13 @@ namespace compiler
 
     llvm::Value* ExprVisitor::local_or_global ( const std::string& name )
     {
+        // first try to find local variable
         auto loc = m_Locals.find(name);
         if ( loc.has_value() ){
             return loc.value();
         }
 
+        // then global value or variable
         auto glob = m_Module.getNamedGlobal(name);
         if ( glob == nullptr ){
             throw std::runtime_error( "Usage of undeclared " + name );
@@ -250,7 +253,8 @@ namespace compiler
     llvm::Value* ExprVisitor::operator() ( const VariableAccess& va )
     {
         auto val = local_or_global(va.identifier);
-        return m_Builder.CreateLoad( m_Builder.getInt32Ty(), val, va.identifier );
+        return m_Builder.CreateLoad( val->getType()->getPointerElementType(),
+            val, va.identifier );
     }
 
     llvm::Value* ExprVisitor::operator() ( const ConstantExpression& c )
@@ -277,7 +281,7 @@ namespace compiler
         std::vector<llvm::Value*> args {};
         args.reserve(sub->arguments.size());
 
-        // If function expects pointer, get a pointer to a variable instead of
+        // If function expects pointer, get a pointer to a variables instead of
         // an expression value
         if ( external::POINTER_FUNS.contains( sub->functionName ))
         {
@@ -368,12 +372,11 @@ namespace compiler
             m_Context,
             name,
             m_Builder.GetInsertBlock()->getParent(),
-            m_ReturnBlock
+            m_ReturnBlock // It is always inserted before the return block
         );
     }
 
 /******************************************************************/
-
 
     void SubprogramVisitor::operator() ( const SubprogramCall& sub )
     {
@@ -408,6 +411,7 @@ namespace compiler
     {
         m_Builder.CreateBr( m_ReturnBlock );
 
+        // throwaway block
         auto bb = get_basic_block( "afterExit" );
         m_Builder.SetInsertPoint(bb);
     }
@@ -421,6 +425,7 @@ namespace compiler
 
         m_Builder.CreateBr( m_LoopContinuation.value() );
 
+        // throwaway block
         auto bb = get_basic_block("afterBreak");
         m_Builder.SetInsertPoint(bb);
     }
@@ -450,7 +455,7 @@ namespace compiler
         compile_stm( if_->trueCode );
         m_Builder.CreateBr(continueBB);
 
-        // compile false branch
+        // compile false branch if it exists
         m_Builder.SetInsertPoint( falseBB );
         if ( if_->elseCode.has_value() )
         {
@@ -464,6 +469,7 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ptr<While>& wh )
     {
+        // Increment is empty -> empty increment statement
         compile_loop(wh->condition, wh->code, EmptyStatement{});
     }
 
@@ -475,7 +481,7 @@ namespace compiler
         auto init = compile_expr( fo->initialization );
         m_Builder.CreateStore( init, iterator );
 
-        // Transform a for loop to while loop
+        // Get the increment and condition operators base on to or downto
         BinaryOperator::OPERATOR condOp;
         BinaryOperator::OPERATOR incrOp;
         switch (fo->direction) {
@@ -492,11 +498,11 @@ namespace compiler
 
         ast::Expression loopVar = ast::VariableAccess { fo->loopVariable };
 
-        // i <= target or i >= targer
+        // `i <= target` or `i >= target`
         ast::Expression cond =
             make_ptr<BinaryOperator>(condOp, loopVar, fo->target );
 
-        // i = i + 1 or i = i - 1
+        // `i := i + 1` or `i := i - 1`
         ast::Statement incr = Assignment{
                 fo->loopVariable,
                 make_ptr<BinaryOperator>(
