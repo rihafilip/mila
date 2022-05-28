@@ -670,6 +670,10 @@ namespace compiler
         const std::optional<Type>& retType,
         bool ptrParams)
     {
+        if (m_Module.getFunction( name ) != nullptr){
+            throw std::runtime_error( "Redeclaration of function " + name );
+        }
+
         // Return type
         llvm::Type * llvmReturnType;
         if ( retType.has_value() ) {
@@ -724,7 +728,74 @@ namespace compiler
             llvmFun = compile_subprogram_decl(name, parameters, retType);
         }
         else {
-            // TODO validate correct structure
+            if ( ! llvmFun->empty() ){
+                throw std::runtime_error( "Redefinition of function " + name );
+            }
+
+            const std::string parCntMsg =
+                "Incorrect count of parameters in function defition of" + name;
+
+            // Validate parameters
+            int i = 0;
+            for ( const auto& a : llvmFun->args() )
+            {
+                // declaration parameters > definiton parameters
+                if ( i >= parameters.size() ){
+                    throw std::runtime_error( parCntMsg );
+                }
+
+                Variable p = parameters[i];
+
+                // Correct name
+                if ( a.getName().data() != p.name ){
+                    throw std::runtime_error(
+                        std::string("Names of the parameter in declaration ")
+                        + a.getName().data()
+                        + " and "
+                        + p.name
+                        + " in definition of function "
+                        + name
+                        + " are different"
+                    );
+                }
+
+                // Correct type
+                auto t = compile_simple_t( p.type );
+                if ( t != a.getType()
+                    || ( a.getType()->isPointerTy()
+                        && t != a.getType()->getPointerElementType() )
+                ){
+                    throw std::runtime_error(
+                        "Incorrect type of parameter "
+                        + p.name
+                        + " in definition of "
+                        + name
+                    );
+                }
+
+                ++i;
+            }
+
+            // Return type is correct
+            const std::string retTMsg =
+                "Return types in definiton and declaration of "
+                + name
+                + " are different";
+
+            if ( retType.has_value() ){
+                auto r = compile_simple_t(retType.value());
+                if ( r != llvmFun->getReturnType() ){
+                    throw std::runtime_error( retTMsg );
+                }
+            }
+            else if ( m_Builder.getVoidTy() != llvmFun->getReturnType() ){
+                throw std::runtime_error( retTMsg );
+            }
+
+            // Declaration parameters < definiton parameters
+            if ( i != parameters.size() ){
+                throw std::runtime_error( parCntMsg );
+            }
         }
 
         // Entry and return basic blocks
