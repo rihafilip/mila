@@ -260,8 +260,15 @@ namespace compiler
 
     llvm::Value* ExprVisitor::operator() ( const ptr<ArrayAccess>& arr )
     {
-        auto idx = compile_expr( arr->value );
-        auto [type, elem] = array_on_idxs(arr->array, { idx });
+        std::vector<llvm::Value*> idxs;
+        idxs.reserve(arr->indices.size());
+        std::ranges::transform(
+            arr->indices,
+            std::back_inserter(idxs),
+            [&]( const Expression& ex ){ return compile_expr(ex); }
+        );
+
+        auto [type, elem] = array_on_idxs(arr->array, idxs);
         return m_Builder.CreateLoad( type, elem );
     }
 
@@ -383,9 +390,16 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ArrayAssignment& arr )
     {
-        auto idx = compile_expr( arr.position );
+        std::vector<llvm::Value*> idxs;
+        idxs.reserve(arr.indices.size());
+        std::ranges::transform(
+            arr.indices,
+            std::back_inserter(idxs),
+            [&]( const Expression& ex ){ return compile_expr(ex); }
+        );
+
         auto val = compile_expr( arr.value );
-        auto [type, elem] = array_on_idxs(arr.array, { idx });
+        auto [type, elem] = array_on_idxs(arr.array, idxs);
 
         m_Builder.CreateStore(val, elem);
     }

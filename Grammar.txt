@@ -52,8 +52,11 @@ Stat -> break
 Stat ->
 
 StatId -> := Expr
-StatId -> [ Expr ] := Expr
+StatId -> [ Expr ] MoreArr := Expr
 StatId -> ( Arguments )
+
+MoreArr -> [ Expr ]
+MoreArr ->
 
 If -> if Expr then Stat Else_p
 
@@ -94,7 +97,7 @@ Factor -> not Factor
 Factor -> + Factor
 Factor -> - Factor
 
-FactorId -> [ Expr ]
+FactorId -> [ Expr ] MoreArr
 FactorId -> ( Arguments )
 FactorId ->
 

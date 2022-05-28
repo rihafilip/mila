@@ -1,0 +1,21 @@
+program arraySimple;
+
+var
+    x : array [0..20] of array [0 .. 10 ] of integer;
+    y : array [0 .. 10] of integer;
+
+begin
+    x[1][2] := 5;
+    writeln( x[1][2] );
+
+    y[2] := 6;
+    writeln( y[2] );
+
+    y := x[1];
+    writeln( y[2] );
+
+    x[1][2] := 7;
+
+    writeln( x[1][2] );
+    writeln( y[2] );
+end.

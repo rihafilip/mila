@@ -72,7 +72,7 @@ namespace ast
     struct ArrayAccess
     {
         Identifier array;
-        Expression value;
+        Many<Expression> indices;
     };
 
     struct SubprogramCall
@@ -122,7 +122,7 @@ namespace ast
     struct ArrayAssignment
     {
         Identifier array;
-        Expression position;
+        Many<Expression> indices;
         Expression value;
     };
 

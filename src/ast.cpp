@@ -142,7 +142,7 @@ namespace ast
             },
             [level]( ptr<ArrayAccess> arr ){
                 return line("ARRAY_ACCESS <" + arr->array + ">", level)
-                    + to_string(arr->value, level+1);
+                    + to_string(arr->indices, level+1);
             },
             [level] (ptr<SubprogramCall> sub){
                 return to_string(*sub, level);
@@ -173,7 +173,7 @@ namespace ast
             [level] ( const ArrayAssignment& arr_ass ){
                 return line("ARRAY ASSIGNEMENT <" + arr_ass.array + ">", level)
                     + line("At:", level+1)
-                    + to_string(arr_ass.position, level+2)
+                    + to_string(arr_ass.indices, level+2)
                     + line("Value:", level+1)
                     + to_string(arr_ass.value, level+2);
             },

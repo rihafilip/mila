@@ -493,9 +493,7 @@ namespace parser
 
         else if ( lookup_eq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
         {
-            match( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
-            auto pos = expr();
-            match( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+            auto pos = array_indices();
             match( OPERATOR::ASSIGNEMENT );
             auto val = expr();
             return ArrayAssignment{ id, pos, val };
@@ -513,6 +511,24 @@ namespace parser
         {
             fail( "assignment or subprogram call", lookup()->variant );
         }
+    }
+
+    Many<Expression> Parser::array_indices()
+    {
+        Many<Expression> idxs {};
+
+        match( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+        idxs.push_back( expr() );
+        match( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+
+        while ( lookup_eq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) )
+        {
+            match( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN );
+            idxs.push_back( expr() );
+            match( CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE );
+        }
+
+        return idxs;
     }
 
     If Parser::if_p()
@@ -664,10 +680,8 @@ namespace parser
         {
             auto id = match_identifier();
             if ( lookup_eq( CONTROL_SYMBOL::SQUARE_BRACKET_OPEN ) ){
-                match(CONTROL_SYMBOL::SQUARE_BRACKET_OPEN);
-                auto exp = expr();
-                match(CONTROL_SYMBOL::SQUARE_BRACKET_CLOSE);
-                return make_ptr<ArrayAccess>( id, exp );
+                auto idxs = array_indices();
+                return make_ptr<ArrayAccess>( id, idxs );
             }
             else if ( lookup_eq( CONTROL_SYMBOL::BRACKET_OPEN ) ){
                 match( CONTROL_SYMBOL::BRACKET_OPEN );

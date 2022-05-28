@@ -133,6 +133,8 @@ namespace parser
         Statement stat();
         Statement stat_id();
 
+        Many<Expression> array_indices();
+
         // suffix _p is used because these are keywords
         If if_p();
         While while_p();
