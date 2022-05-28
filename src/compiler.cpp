@@ -201,7 +201,7 @@ namespace compiler
         throw std::runtime_error( "Trying to use an address of a non-variable" );
     }
 
-    std::pair<llvm::Type*, llvm::Value*> ExprVisitor::array_on_idxs ( const std::string& name, const std::vector<llvm::Value*>& idx )
+    std::pair<llvm::Type*, llvm::Value*> ExprVisitor::array_on_idxs ( const std::string& name, const Many<Expression>& indices )
     {
         auto arrPtr = local_or_global( name );
         auto lows = m_ArrayLows.find(name);
@@ -213,14 +213,14 @@ namespace compiler
         }
 
         // array is accessed with as if it has more dimensions that it actualy has
-        if( idx.size() > lows->size() )
+        if( indices.size() > lows->size() )
         {
             throw std::runtime_error(
                 name
                 + " is a "
                 + std::to_string(lows->size())
                 + "-dimensional array, used as a "
-                + std::to_string(idx.size())
+                + std::to_string(indices.size())
                 + "-dimensional"
             );
         }
@@ -228,18 +228,26 @@ namespace compiler
 
         // Array of indexes
         std::vector<llvm::Value*> idxArr {};
-        idxArr.reserve(idx.size() + 1);
+        idxArr.reserve(indices.size() + 1);
 
-        // Add the initial nitial zero
+        // Add the initial initial zero
         idxArr.push_back(llvm::ConstantInt::get( m_Builder.getInt32Ty(), 0));
-        for ( int i = 0; i < idx.size(); ++i )
-        {
-            idxArr.push_back( m_Builder.CreateAdd((*lows)[i], idx[i]) );
-        }
+
+        // Add the rest of indices
+        std::ranges::transform(
+            indices,
+            lows.value(),
+            std::back_inserter(idxArr),
+            [&]( const Expression& ex, llvm::Value* low ){
+                auto idx = compile_expr(ex);
+                return m_Builder.CreateSub(idx, low);
+            }
+        );
 
         // Get the element on specified indicies
         auto* elem = m_Builder.CreateInBoundsGEP(
-            arrPtr->getType()->getPointerElementType(), arrPtr, idxArr
+            arrPtr->getType()->getPointerElementType(), arrPtr, idxArr,
+            name + "_arr"
         );
 
         // Get the actual type
@@ -264,15 +272,7 @@ namespace compiler
 
     llvm::Value* ExprVisitor::operator() ( const ptr<ArrayAccess>& arr )
     {
-        std::vector<llvm::Value*> idxs;
-        idxs.reserve(arr->indices.size());
-        std::ranges::transform(
-            arr->indices,
-            std::back_inserter(idxs),
-            [&]( const Expression& ex ){ return compile_expr(ex); }
-        );
-
-        auto [type, elem] = array_on_idxs(arr->array, idxs);
+        auto [type, elem] = array_on_idxs(arr->array, arr->indices);
         return m_Builder.CreateLoad( type, elem );
     }
 
@@ -393,16 +393,8 @@ namespace compiler
 
     void SubprogramVisitor::operator() ( const ArrayAssignment& arr )
     {
-        std::vector<llvm::Value*> idxs;
-        idxs.reserve(arr.indices.size());
-        std::ranges::transform(
-            arr.indices,
-            std::back_inserter(idxs),
-            [&]( const Expression& ex ){ return compile_expr(ex); }
-        );
-
         auto val = compile_expr( arr.value );
-        auto [type, elem] = array_on_idxs(arr.array, idxs);
+        auto [type, elem] = array_on_idxs(arr.array, arr.indices);
 
         m_Builder.CreateStore(val, elem);
     }

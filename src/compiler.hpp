@@ -149,7 +149,7 @@ namespace compiler
         /// Return an address of local or global variable
         llvm::Value* variable_address ( const Expression& expr );
 
-        std::pair<llvm::Type*, llvm::Value*> array_on_idxs ( const std::string& name, const std::vector<llvm::Value*>& idx );
+        std::pair<llvm::Type*, llvm::Value*> array_on_idxs ( const std::string& name, const Many<Expression>& idx );
 
         /// @name Expression generators
         /// @{

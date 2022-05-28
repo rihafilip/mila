@@ -2,20 +2,27 @@ program arraySimple;
 
 var
     x : array [0..20] of array [0 .. 10 ] of integer;
-    y : array [0 .. 10] of integer;
+    y : array [20 .. 30] of integer;
+    z : array [-5..5] of integer;
+    j : integer;
 
 begin
     x[1][2] := 5;
     writeln( x[1][2] );
 
-    y[2] := 6;
-    writeln( y[2] );
+    y[22] := 6;
+    writeln( y[22] );
 
     y := x[1];
-    writeln( y[2] );
+    writeln( y[22] );
 
     x[1][2] := 7;
 
     writeln( x[1][2] );
-    writeln( y[2] );
+    writeln( y[22] );
+
+    j := -3;
+
+    z[ j ] := 12;
+    writeln( z[j] )
 end.
