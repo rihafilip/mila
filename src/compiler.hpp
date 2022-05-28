@@ -2,6 +2,8 @@
 #define COMPILER_HPP
 
 #include "ast.hpp"
+#include "unique_map.hpp"
+#include "variant_helpers.hpp"
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/IR/BasicBlock.h>
@@ -40,10 +42,26 @@ namespace compiler
 
     /******************************************************************/
 
+    ///\defgroup Decl Declaration map aliases
+    /// @{
+
+    /// Array of low bounds of an array
+    using ArrayLowBounds = std::vector<llvm::Constant*>;
+
+    /// Map of local declarations
+    using DeclarationMap = cont::UniqueMap<std::string, llvm::Value*>;
+    using ArrayMap = cont::UniqueMap<std::string, ArrayLowBounds>;
+
+    using ArrayType = std::pair<llvm::Type*, ArrayLowBounds>;
+
+    /// Generated type is either a simple Type* or a complex array type
+    using TypeRes = std::variant<llvm::Type*, ArrayType>;
+    ///@}
+
+
     ///\defgroup AstVisitors AST visitors and code generator
     /// @{
 
-    using DeclarationMap = cont::UniqueMap<std::string, llvm::Value*>;
     /// Visitor generating constants, constant expressions and types
     struct ConstantVisitor
     {
@@ -55,6 +73,9 @@ namespace compiler
 
         /// LLVM module
         llvm::Module& m_Module;
+
+        //// Map of global arrays definitions
+        ArrayMap m_ArrayLows;
 
         /// Compile constant
         llvm::ConstantInt* compile_const ( const Constant& variant )
@@ -69,9 +90,21 @@ namespace compiler
         }
 
         /// Compile type
-        llvm::Type* compile_t ( const Type& variant )
+        TypeRes compile_t ( const Type& variant )
         {
             return std::visit( *this, variant );
+        }
+
+        /// Force a simple type or an error
+        llvm::Type* compile_simple_t ( const Type& variant )
+        {
+            auto res = std::visit( *this, variant );
+            if ( auto t = wrap(res).get<llvm::Type*>(); t.has_value() )
+            {
+                return t.value();
+            }
+
+            throw std::runtime_error( "Using array in a simple type place" );
         }
 
         /// @name Constant generators
@@ -92,8 +125,8 @@ namespace compiler
 
         /// @name Types generators
         /// @{
-        llvm::Type* operator() ( SimpleType );
-        llvm::Type* operator() ( const ptr<Array>& );
+        TypeRes operator() ( SimpleType );
+        TypeRes operator() ( const ptr<Array>& );
         ///@}
     };
 
@@ -115,6 +148,8 @@ namespace compiler
 
         /// Return an address of local or global variable
         llvm::Value* variable_address ( const Expression& expr );
+
+        std::pair<llvm::Type*, llvm::Value*> array_on_idxs ( const std::string& name, const std::vector<llvm::Value*>& idx );
 
         /// @name Expression generators
         /// @{

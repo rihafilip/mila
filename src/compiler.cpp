@@ -126,7 +126,7 @@ namespace compiler
 
 /******************************************************************/
 
-    llvm::Type* ConstantVisitor::operator() ( SimpleType t )
+    TypeRes ConstantVisitor::operator() ( SimpleType t )
     {
         switch (t) {
         case ast::SimpleType::INTEGER:
@@ -137,9 +137,37 @@ namespace compiler
         }
     }
 
-    llvm::Type* ConstantVisitor::operator() ( const ptr<Array>& )
+    TypeRes ConstantVisitor::operator() ( const ptr<Array>& arr )
     {
-        throw std::runtime_error( "TODO" );
+        // array [] of `inner`
+        auto inner = compile_t( arr->elementType );
+        auto low = compile_cexpr( arr->lowBound );
+        auto high = compile_cexpr( arr->highBound );
+
+        // Get the exact integer of `high - low`
+        uint64_t size =
+            llvm::ConstantExpr::getSub(high, low)->getUniqueInteger().getZExtValue();
+
+        return wrap(inner).visit(
+            // on inner simple type (for example array [] oif integer)
+            // just use this type as inner
+            [&]( llvm::Type* simple ) -> ArrayType
+            {
+                auto arr_t = llvm::ArrayType::get(simple, size);
+                return { arr_t, { low } };
+            },
+            // on multidimensional array get the previous low bounds
+            // and add the current one
+            [&] ( ArrayType arr ) -> ArrayType
+            {
+                auto [t, prev_lows] = arr;
+                auto curr_arr = llvm::ArrayType::get(t, size);
+
+                // prepend new low bound
+                prev_lows.insert( prev_lows.begin(), low );
+                return { curr_arr, prev_lows };
+            }
+        );
     }
 
 /******************************************************************/
@@ -161,15 +189,60 @@ namespace compiler
 
     llvm::Value* ExprVisitor::variable_address ( const Expression& expr )
     {
-        return wrap(expr).visit(
-            [&]( const VariableAccess& va ) -> llvm::Value*{
-                return local_or_global(va.identifier);
-            },
-            []( const auto& ) -> llvm::Value*{
-                throw std::runtime_error(
-                    "Trying to use an address of a non-variable");
-            }
+        // only variables are allowed to be accessed by address
+        if ( auto va = wrap(expr).get<VariableAccess>(); va.has_value() )
+        {
+            return local_or_global(va->identifier);
+        }
+
+        throw std::runtime_error( "Trying to use an address of a non-variable" );
+    }
+
+    std::pair<llvm::Type*, llvm::Value*> ExprVisitor::array_on_idxs ( const std::string& name, const std::vector<llvm::Value*>& idx )
+    {
+        auto arrPtr = local_or_global( name );
+        auto lows = m_ArrayLows.find(name);
+
+        // `name` is not an array
+        if ( ! lows.has_value() )
+        {
+            throw std::runtime_error( "Invalid usage of " + name + " as an array.");
+        }
+
+        // array is accessed with as if it has more dimensions that it actualy has
+        if( idx.size() > lows->size() )
+        {
+            throw std::runtime_error(
+                name
+                + " is a "
+                + std::to_string(lows->size())
+                + "-dimensional array, used as a "
+                + std::to_string(idx.size())
+                + "-dimensional"
+            );
+        }
+
+
+        // Array of indexes
+        std::vector<llvm::Value*> idxArr {};
+        idxArr.reserve(idx.size() + 1);
+
+        // Add the initial nitial zero
+        idxArr.push_back(llvm::ConstantInt::get( m_Builder.getInt32Ty(), 0));
+        for ( int i = 0; i < idx.size(); ++i )
+        {
+            idxArr.push_back( m_Builder.CreateAdd((*lows)[i], idx[i]) );
+        }
+
+        // Get the element on specified indicies
+        auto* elem = m_Builder.CreateInBoundsGEP(
+            arrPtr->getType()->getPointerElementType(), arrPtr, idxArr
         );
+
+        // Get the actual type
+        auto* type = elem->getType()->getPointerElementType();
+
+        return { type, elem };
     }
 
 /******************************************************************/
@@ -185,9 +258,11 @@ namespace compiler
         return compile_const ( c.value );
     }
 
-    llvm::Value* ExprVisitor::operator() ( const ptr<ArrayAccess>& )
+    llvm::Value* ExprVisitor::operator() ( const ptr<ArrayAccess>& arr )
     {
-        throw std::runtime_error( "TODO" );
+        auto idx = compile_expr( arr->value );
+        auto [type, elem] = array_on_idxs(arr->array, { idx });
+        return m_Builder.CreateLoad( type, elem );
     }
 
     llvm::Value* ExprVisitor::operator() ( const ptr<SubprogramCall>& sub )
@@ -306,9 +381,13 @@ namespace compiler
         m_Builder.CreateStore(val, ptr);
     }
 
-    void SubprogramVisitor::operator() ( const ArrayAssignment& )
+    void SubprogramVisitor::operator() ( const ArrayAssignment& arr )
     {
-        throw std::runtime_error( "TODO" );
+        auto idx = compile_expr( arr.position );
+        auto val = compile_expr( arr.value );
+        auto [type, elem] = array_on_idxs(arr.array, { idx });
+
+        m_Builder.CreateStore(val, elem);
     }
 
     void SubprogramVisitor::operator() ( const ExitStatement& )
@@ -505,10 +584,29 @@ namespace compiler
     void ProgramVisitor::operator() ( const Variable& var )
     {
         auto type = compile_t( var.type );
-        auto zero = llvm::Constant::getNullValue(type);
+
+        llvm::Type* actual_type;
+
+        wrap(type).visit(
+            // On simple type just assign it
+            [&]( llvm::Type* simple )
+            {
+                actual_type = simple;
+            },
+            // On array type also add it to array lows
+            [&]( const ArrayType& arr )
+            {
+                actual_type = arr.first;
+                m_ArrayLows.add(var.name, arr.second);
+            }
+        );
+
+        // Initialized by zero
+        auto zero = llvm::Constant::getNullValue(actual_type);
+
         new llvm::GlobalVariable(
             m_Module,
-            type,
+            actual_type,
             false, // Is a constant
             llvm::GlobalVariable::ExternalLinkage,
             zero,
@@ -563,7 +661,7 @@ namespace compiler
         // Return type
         llvm::Type * llvmReturnType;
         if ( retType.has_value() ) {
-            llvmReturnType = compile_t( retType.value() );
+            llvmReturnType = compile_simple_t( retType.value() );
         }
         else {
             llvmReturnType = m_Builder.getVoidTy();
@@ -574,7 +672,7 @@ namespace compiler
         llvmParams.reserve( parameters.size() );
         for ( const auto& p : parameters )
         {
-            auto t = compile_t( p.type );
+            auto t = compile_simple_t( p.type );
             if ( ptrParams ){
                 t = t->getPointerTo();
             }
@@ -636,7 +734,7 @@ namespace compiler
         // Local variables
         for ( const auto& v : variables )
         {
-            auto vAddr = m_Builder.CreateAlloca( compile_t(v.type), nullptr, v.name + "_var");
+            auto vAddr = m_Builder.CreateAlloca( compile_simple_t(v.type), nullptr, v.name + "_var");
             locals.add(v.name, vAddr);
         }
 
@@ -652,7 +750,7 @@ namespace compiler
 
         // Code
         SubprogramVisitor visitor {
-            { { m_Context, m_Builder, m_Module }, locals },
+            { { m_Context, m_Builder, m_Module, m_ArrayLows }, locals },
             returnBB,
             std::nullopt // Not starting in a loop
         };
