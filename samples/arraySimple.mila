@@ -4,6 +4,7 @@ var
     x : array [0..20] of array [0 .. 10 ] of integer;
     y : array [20 .. 30] of integer;
     z : array [-5..5] of integer;
+    t : array [0..20] of array [0 .. 10 ] of integer;
     j : integer;
 
 begin
@@ -21,8 +22,17 @@ begin
     writeln( x[1][2] );
     writeln( y[22] );
 
+    t := x;
+
+    writeln( t[1][2] );
+
+    x[1][2] := 12;
+
+    writeln( x[1][2] );
+    writeln( t[1][2] );
+
     j := -3;
 
-    z[ j ] := 12;
+    z[ j ] := 24;
     writeln( z[j] )
 end.

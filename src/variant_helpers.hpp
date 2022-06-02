@@ -23,6 +23,10 @@ public:
         : variant( v )
     {}
 
+    VariantWrapper( inner_t&& v )
+        : variant( v )
+    {}
+
     /// Wrapper around std::get_if
     template <typename T>
     constexpr std::optional<T> get()

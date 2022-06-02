@@ -104,8 +104,8 @@ namespace parser
         /// Failure in parsing
         [[noreturn]] void fail( const std::string& expected, const token::Token& got );
 
-        // Individual token parsers
-
+        /// @name Individual token parsers, each one rougly corresponding to a grammar state
+        /// @{
         Program program();
 
         Many<Global> globals();
@@ -150,6 +150,7 @@ namespace parser
         Many<Expression> arguments();
 
         Type type();
+        /// @}
     };
 
     /// @}

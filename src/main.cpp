@@ -39,7 +39,7 @@ void print_parser( const std::string& in_file )
     std::cout << ast::to_string( ast ) << std::endl;
 }
 
-void compile( const std::string& in_file )
+void print_llvm( const std::string& in_file )
 {
     std::fstream f ( in_file, std::ios_base::in );
 
@@ -74,7 +74,7 @@ int main( int argc, char const* argv [] )
             print_parser(argv[1]);
         }
         else if ( flag == "-o" ) {
-            compile( argv[1] );
+            print_llvm( argv[1] );
         }
         else {
             std::cerr << USAGE << std::endl;

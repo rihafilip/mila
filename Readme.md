@@ -27,7 +27,7 @@
 - [x] Nested blocks  
 
 ***(4.5 pts)***
-- [ ] Static arrays  
+- [x] Static arrays  
 
 ***(4.5 pts)***
 - [x] Procedure  

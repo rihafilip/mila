@@ -24,6 +24,9 @@ namespace compiler
 {
     using namespace ast;
 
+    ///\defgroup Compile LLVM Compilation
+    /// @{
+
     namespace external
     {
         /// Functions that require pointers in arguments
@@ -59,7 +62,7 @@ namespace compiler
     ///@}
 
 
-    ///\defgroup AstVisitors AST visitors and code generator
+    ///\defgroup AstVisitors AST visitors and code generators
     /// @{
 
     /// Visitor generating constants, constant expressions and types

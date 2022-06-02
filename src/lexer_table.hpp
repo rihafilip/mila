@@ -22,9 +22,7 @@ namespace lexer
     struct IntegerState {
         int value = 0;
 
-        /** Add a new digit of certain value, shifting the previous value
-         * by the given base
-         */
+        /// Add a new digit of certain value, shifting the previous value by the given base
         Subclass add ( int val ) const
         {
             return Subclass { (value * base) + val};
@@ -64,24 +62,30 @@ namespace lexer
     /// \defgroup LexTableTable Table definiton
     /// @{
 
-    /// Return on state transition -> new state or outputed token
+    /// Return on state transition: new state or outputed token
     using TransitionReturn = std::variant<Token, State>;
 
-    /// What to do on state
+    /// What to do on state and character
     template <typename St>
-    using Transition = std::function<TransitionReturn(St, char)>;
+    using TransitionFun = std::function<TransitionReturn(St, char)>;
 
-    /// Return nothing if extraction fails, otherwise returns token
+    /**
+     * @brief Function that returns nothing if extraction fails,
+     * otherwise returns token
+     */
     template <typename St>
-    using ExtractToken = std::function<std::optional<Token>(St)>;
+    using ExtractTokenFun = std::function<std::optional<Token>(St)>;
 
 
     /// Single table definition
     template <typename St>
     struct Table
     {
-        std::map<char, Transition<St>> m_Map {};
-        ExtractToken<St> m_ExtractToken;
+        /// Map from char to transition to use
+        std::map<char, TransitionFun<St>> m_Map {};
+
+        /// With this function try to extract the token from the state
+        ExtractTokenFun<St> m_ExtractToken;
     };
     /// @}
 
@@ -160,8 +164,8 @@ namespace lexer
      */
     template <typename St>
     Table<St> make_table(
-        std::initializer_list<std::pair<TableRange, Transition<St>>> init,
-        const ExtractToken<St>& extr
+        std::initializer_list<std::pair<TableRange, TransitionFun<St>>> init,
+        const ExtractTokenFun<St>& extr
     ) {
         Table<St> table{ {}, extr };
 
