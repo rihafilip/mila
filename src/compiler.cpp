@@ -145,9 +145,11 @@ namespace compiler
         auto low = compile_cexpr( arr->lowBound );
         auto high = compile_cexpr( arr->highBound );
 
-        // Get the exact integer of `high - low`
+        // Get the exact integer of `high - low + 1`
+        // because even `array [0 .. 0]` has one element
         uint64_t size =
-            llvm::ConstantExpr::getSub(high, low)->getUniqueInteger().getZExtValue();
+            llvm::ConstantExpr::getSub(high, low)->getUniqueInteger().getZExtValue()
+            + 1;
 
         return wrap(inner).visit(
             // on inner simple type (for example array [] oif integer)
